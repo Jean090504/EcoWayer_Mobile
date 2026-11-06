@@ -1,6 +1,7 @@
 package com.example.ecowayer.ui.navigation
 
 sealed class Routes(val route: String) {
-    data object Splash : Routes("splash")
-    data object Home : Routes("home")
+    object Splash : Routes("splash")
+    object Home : Routes("home")
+    object Cadastro : Routes("cadastro")   // <- nova
 }
