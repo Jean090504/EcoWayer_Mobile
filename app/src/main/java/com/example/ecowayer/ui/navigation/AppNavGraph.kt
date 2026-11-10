@@ -1,16 +1,34 @@
 package com.example.ecowayer.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.screens.CadastroScreen.CadastroScreen
+import com.example.ecowayer.ui.screens.boasvindas.BoasVindasScreen
 import com.example.ecowayer.ui.screens.endereco.EnderecoScreen
 import com.example.ecowayer.ui.screens.home.HomeScreen
+import com.example.ecowayer.ui.screens.loja.LojaScreen
 import com.example.ecowayer.ui.screens.splash.SplashScreen
 import com.example.ecowayer.ui.screens.vereficacao.VerificacaoEmailScreen
 import com.example.ecowayer.ui.screens.vereficacao.VerificacaoNumeroScreen
 
+private fun NavController.navegarPelaBarra(destino: DestinoBarra) {
+    val rota = when (destino) {
+        DestinoBarra.Inicio -> Routes.Home.route
+        DestinoBarra.Loja -> Routes.Loja.route
+        DestinoBarra.Carteira -> null   // TODO: Routes.Carteira.route quando existir
+        DestinoBarra.Perfil -> null     // TODO: Routes.Perfil.route quando existir
+    } ?: return
+
+    navigate(rota) {
+        popUpTo(Routes.Home.route) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
 
 @Composable
 fun AppNavGraph() {
@@ -62,15 +80,33 @@ fun AppNavGraph() {
             EnderecoScreen(
                 onBack = { navController.popBackStack() },
                 onFinalizar = {
-                    navController.navigate(Routes.Home.route) {
+                    navController.navigate(Routes.BoasVindas.route) {
                         popUpTo(Routes.Splash.route) { inclusive = true }
                     }
                 }
             )
         }
 
+        composable(Routes.BoasVindas.route) {
+            BoasVindasScreen(
+                onFinalizar = {
+                    navController.navigate(Routes.Home.route) {
+                        popUpTo(Routes.BoasVindas.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
         composable(Routes.Home.route) {
-            HomeScreen()
+            HomeScreen(
+                onNavegar = { destino -> navController.navegarPelaBarra(destino) }
+            )
+        }
+
+        composable(Routes.Loja.route) {
+            LojaScreen(
+                onNavegar = { destino -> navController.navegarPelaBarra(destino) }
+            )
         }
     }
 }
