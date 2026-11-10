@@ -8,6 +8,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.screens.CadastroScreen.CadastroScreen
 import com.example.ecowayer.ui.screens.boasvindas.BoasVindasScreen
+import com.example.ecowayer.ui.screens.ecopontos.EcoPontosScreen
 import com.example.ecowayer.ui.screens.endereco.EnderecoScreen
 import com.example.ecowayer.ui.screens.home.HomeScreen
 import com.example.ecowayer.ui.screens.loja.LojaScreen
@@ -99,6 +100,13 @@ fun AppNavGraph() {
 
         composable(Routes.Home.route) {
             HomeScreen(
+                onNavegar = { destino -> navController.navegarPelaBarra(destino) },
+                        onBuscarEcoPontos = { navController.navigate(Routes.EcoPontos.route) }
+            )
+        }
+
+        composable(Routes.EcoPontos.route) {
+            EcoPontosScreen(
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) }
             )
         }

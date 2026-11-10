@@ -56,4 +56,5 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation("com.mapbox.maps:android-ndk27:11.29.0")
     implementation("com.mapbox.extension:maps-compose:11.29.0")
+    implementation("androidx.compose.material:material-icons-extended")
 }
