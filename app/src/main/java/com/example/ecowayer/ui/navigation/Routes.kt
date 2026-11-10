@@ -11,4 +11,5 @@ sealed class Routes(val route: String) {
     object Loja : Routes("loja")
     object BoasVindas : Routes("boas_vindas")
     object EcoPontos : Routes("ecopontos")
+    object CriarAnuncio : Routes("criar_anuncio")
 }

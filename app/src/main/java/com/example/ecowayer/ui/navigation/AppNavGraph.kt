@@ -8,6 +8,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.screens.CadastroScreen.CadastroScreen
 import com.example.ecowayer.ui.screens.boasvindas.BoasVindasScreen
+import com.example.ecowayer.ui.screens.criarAnuncio.CriarAnuncioScreen
 import com.example.ecowayer.ui.screens.ecopontos.EcoPontosScreen
 import com.example.ecowayer.ui.screens.endereco.EnderecoScreen
 import com.example.ecowayer.ui.screens.home.HomeScreen
@@ -101,7 +102,7 @@ fun AppNavGraph() {
         composable(Routes.Home.route) {
             HomeScreen(
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) },
-                        onBuscarEcoPontos = { navController.navigate(Routes.EcoPontos.route) }
+                onBuscarEcoPontos = { navController.navigate(Routes.EcoPontos.route) }
             )
         }
 
@@ -113,7 +114,19 @@ fun AppNavGraph() {
 
         composable(Routes.Loja.route) {
             LojaScreen(
-                onNavegar = { destino -> navController.navegarPelaBarra(destino) }
+                onNavegar = { destino -> navController.navegarPelaBarra(destino) },
+                onCriarAnuncio = { navController.navigate(Routes.CriarAnuncio.route) }
+            )
+        }
+
+        composable(Routes.CriarAnuncio.route) {
+            CriarAnuncioScreen(
+                onBack = { navController.popBackStack() },
+                onNavegar = { destino -> navController.navegarPelaBarra(destino) },
+                onPublicar = { anuncio ->
+                    // TODO: enviar para a API
+                    navController.popBackStack()
+                }
             )
         }
     }
