@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,6 +43,9 @@ import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
+import com.mapbox.geojson.Point
+import com.mapbox.maps.extension.compose.MapboxMap
+import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
 
 /**
  * Modelo temporário. Quando a API estiver pronta, crie esta classe a partir do
@@ -104,9 +108,7 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .statusBarsPadding(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                horizontal = 16.dp, vertical = 12.dp
-            ),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Cabeçalho
@@ -115,7 +117,7 @@ fun HomeScreen(
             // Saldo
             item { CardSaldo(saldo, onVerExtrato, onTrocarPontos) }
 
-            // Mapa
+            // Mapa (Mapbox)
             item { MapaEcoPontos(onBuscarEcoPontos) }
 
             // Filtros
@@ -241,33 +243,27 @@ private fun MapaEcoPontos(onBuscarEcoPontos: () -> Unit) {
             .clip(RoundedCornerShape(20.dp))
             .background(Color(0xFFE5ECE4))
     ) {
-        // MAPA (API) -----------------------------------------------------
-        // Quando integrar o Google Maps, adicione a dependência
-        // com.google.maps.android:maps-compose e a chave da API no
-        // AndroidManifest. Depois troque o conteúdo desta Box por:
-        //
-        // val posicaoUsuario = LatLng(-23.55, -46.63)   // TODO: localização real
-        // val cameraState = rememberCameraPositionState {
-        //     position = CameraPosition.fromLatLngZoom(posicaoUsuario, 15f)
-        // }
-        // GoogleMap(
-        //     modifier = Modifier.fillMaxSize(),
-        //     cameraPositionState = cameraState,
-        //     uiSettings = MapUiSettings(zoomControlsEnabled = false)
-        // ) {
-        //     ecoPontos.forEach { ponto ->               // marcadores vindos da API
-        //         Marker(
-        //             state = MarkerState(LatLng(ponto.latitude, ponto.longitude)),
-        //             title = ponto.nome
-        //         )
-        //     }
-        // }
-        Text(
-            text = "Mapa",
-            color = Color(0xFF9AA79A),
-            modifier = Modifier.align(Alignment.Center)
+        // MAPA (Mapbox) ----------------------------------------------------
+        MapboxMap(
+            modifier = Modifier.fillMaxSize(),
+            mapViewportState = rememberMapViewportState {
+                setCameraOptions {
+                    center(Point.fromLngLat(-46.6333, -23.5505))  // TODO: localização real
+                    zoom(16.0)
+                }
+            },
+            logo = {},       // esconde a logo do Mapbox
+            scaleBar = {}    // esconde a escala
         )
-        // ----------------------------------------------------------------
+
+        // Camada transparente: o mapa vira uma prévia clicável e não briga
+        // com a rolagem da tela
+        Box(
+            Modifier
+                .matchParentSize()
+                .clickable { onBuscarEcoPontos() }
+        )
+        // ------------------------------------------------------------------
 
         // Card "Buscar EcoPontos" sobre o mapa
         Row(
