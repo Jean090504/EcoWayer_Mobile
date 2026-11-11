@@ -52,12 +52,19 @@ import com.example.ecowayer.ui.theme.EcowayerTheme
  * a partir do JSON retornado e mova para a pasta data/model.
  */
 data class Anuncio(
+    val id: Int,
     val titulo: String,
-    val preco: String,        // ex.: "R$ 170,00" (ou Double + NumberFormat)
-    val nota: String,         // ex.: "4.9"
-    val distancia: String,    // ex.: "2.4 km"
-    val categoria: String,    // Móveis, Fardos, Plástico, Papel...
+    val preco: String,
+    val nota: String,
+    val distancia: String,
+    val categoria: String,
     val imagemUrl: String? = null
+)
+
+val anunciosMock = listOf(            // TODO API
+    Anuncio(1, "Mesa semi nova...", "R$ 170,00", "4.9", "2.4 km", "Móveis"),
+    Anuncio(2, "Fardo de PET limpo - 25 kg", "R$ 64,00", "4.7", "1.1 km", "Fardos"),
+    Anuncio(3, "Papelão prensado - 50 kg", "R$ 45,00", "4.8", "4.0 km", "Papel")
 )
 
 private val categorias = listOf("Tudo", "Móveis", "Fardos", "Plástico", "Papel")
@@ -85,11 +92,7 @@ fun LojaScreen(
     // Se quiser, trate também: carregando (CircularProgressIndicator),
     // erro (mensagem + botão "Tentar de novo") e lista vazia.
     // ----------------------------------------------------------------------
-    val anunciosMock = listOf(            // TODO API
-        Anuncio("Mesa semi nova...", "R$ 170,00", "4.9", "2.4 km", "Móveis"),
-        Anuncio("Fardo de PET limpo - 25 kg", "R$ 64,00", "4.7", "1.1 km", "Fardos"),
-        Anuncio("Papelão prensado - 50 kg", "R$ 45,00", "4.8", "4.0 km", "Papel")
-    )
+
     val anuncios = anunciosMock.filter {
         categoriaSelecionada == "Tudo" || it.categoria == categoriaSelecionada
     }

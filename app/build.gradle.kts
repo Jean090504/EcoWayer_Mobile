@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+
+
 android {
     namespace = "com.example.ecowayer"
     compileSdk {
@@ -57,4 +59,10 @@ dependencies {
     implementation("com.mapbox.maps:android-ndk27:11.29.0")
     implementation("com.mapbox.extension:maps-compose:11.29.0")
     implementation("androidx.compose.material:material-icons-extended")
+    val cameraxVersion = "1.6.2"
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
 }

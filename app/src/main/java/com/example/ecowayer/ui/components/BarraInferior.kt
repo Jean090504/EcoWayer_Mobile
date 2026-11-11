@@ -56,7 +56,7 @@ enum class DestinoBarra(val rotulo: String, val icone: ImageVector) {
  */
 @Composable
 fun BarraInferior(
-    selecionado: DestinoBarra,
+    selecionado: DestinoBarra?,
     onSelecionar: (DestinoBarra) -> Unit,
     onQrCode: () -> Unit,
     modifier: Modifier = Modifier
@@ -108,7 +108,7 @@ fun BarraInferior(
 @Composable
 private fun ItemBarra(
     destino: DestinoBarra,
-    selecionado: DestinoBarra,
+    selecionado: DestinoBarra?,
     onSelecionar: (DestinoBarra) -> Unit,
     modifier: Modifier = Modifier
 ) {

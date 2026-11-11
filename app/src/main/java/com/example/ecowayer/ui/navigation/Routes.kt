@@ -12,4 +12,19 @@ sealed class Routes(val route: String) {
     object BoasVindas : Routes("boas_vindas")
     object EcoPontos : Routes("ecopontos")
     object CriarAnuncio : Routes("criar_anuncio")
+
+    object DetalhesAnuncio : Routes("detalhes_anuncio/{id}") {
+        fun criar(id: Int) = "detalhes_anuncio/$id"
+    }
+
+    object RegistrarEntrega : Routes("registrar_entrega")
+
+    object Carteira : Routes("carteira")
+
+    object Perfil : Routes("perfil")
+
+    object Insignias : Routes("insignias")
+
+    object Notificacoes : Routes("notificacoes")   // NOVO
+
 }

@@ -46,7 +46,8 @@ import com.example.ecowayer.ui.theme.EcowayerTheme
 import com.mapbox.geojson.Point
 import com.mapbox.maps.extension.compose.MapboxMap
 import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
-
+import com.mapbox.maps.extension.compose.style.standard.LightPresetValue
+import com.mapbox.maps.extension.compose.style.standard.MapboxStandardStyle
 /**
  * Modelo temporário. Quando a API estiver pronta, crie esta classe a partir do
  * JSON retornado (ex.: data class EcoPontoDto) e mova para a pasta data/model.
@@ -252,6 +253,7 @@ private fun MapaEcoPontos(onBuscarEcoPontos: () -> Unit) {
                     zoom(16.0)
                 }
             },
+
             logo = {},       // esconde a logo do Mapbox
             scaleBar = {}    // esconde a escala
         )

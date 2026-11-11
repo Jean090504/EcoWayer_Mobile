@@ -11,6 +11,7 @@ import com.example.ecowayer.ui.screens.home.HomeScreen
 import com.example.ecowayer.ui.screens.splash.SplashScreen
 import com.example.ecowayer.ui.screens.vereficacao.VerificacaoEmailScreen
 import com.example.ecowayer.ui.screens.vereficacao.VerificacaoNumeroScreen
+import com.example.ecowayer.ui.screens.notificacoes.NotificacoesScreen
 
 @Composable
 fun AppNavGraph() {
