@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -69,7 +71,8 @@ fun DetalhesAnuncioScreen(
     onBack: () -> Unit = {},
     onNavegar: (DestinoBarra) -> Unit = {},
     onQrCode: () -> Unit = {},
-    onConversar: () -> Unit = {}
+    onConversar: () -> Unit = {},
+    onDenunciar: () -> Unit = {}
 ) {
     // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
     // Troque o mock abaixo por um estado vindo do ViewModel:
@@ -132,6 +135,16 @@ fun DetalhesAnuncioScreen(
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold
                 )
+
+                Spacer(Modifier.weight(1f))
+
+                IconButton(onClick = onDenunciar) {
+                    Icon(
+                        Icons.Outlined.Flag,
+                        contentDescription = "Denunciar anúncio",
+                        tint = Color(0xFFC93B36)
+                    )
+                }
             }
             HorizontalDivider(color = Color(0xFFEEEEEE))
 

@@ -13,6 +13,7 @@ import com.example.ecowayer.ui.screens.boasvindas.BoasVindasScreen
 import com.example.ecowayer.ui.screens.carteira.CarteiraScreen
 import com.example.ecowayer.ui.screens.conversa.ConversaScreen
 import com.example.ecowayer.ui.screens.criarAnuncio.CriarAnuncioScreen
+import com.example.ecowayer.ui.screens.denuncia.DenunciarAnuncioScreen
 import com.example.ecowayer.ui.screens.detalhes.DetalhesAnuncioScreen
 import com.example.ecowayer.ui.screens.ecopontos.EcoPontosScreen
 import com.example.ecowayer.ui.screens.endereco.EnderecoScreen
@@ -165,9 +166,16 @@ fun AppNavGraph() {
                 anuncioId = entrada.arguments?.getInt("id") ?: 0,
                 onBack = { navController.popBackStack() },
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) },
-                onQrCode = { navController.abrirRegistrarEntrega() }
+                onQrCode = { navController.abrirRegistrarEntrega() },
+                onDenunciar = {
+                    navController.navigate(
+                        Routes.DenunciarAnuncio.criar(entrada.arguments?.getInt("id") ?: 0)
+                    )
+                }
             )
         }
+
+
 
         composable(Routes.RegistrarEntrega.route) {
             RegistrarEntregaScreen(
@@ -250,6 +258,22 @@ fun AppNavGraph() {
             ConversaScreen(
                 conversaId = entrada.arguments?.getInt("id") ?: 0,
                 onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = Routes.DenunciarAnuncio.route,
+            arguments = listOf(navArgument("id") { type = NavType.IntType })
+        ) { entrada ->
+            DenunciarAnuncioScreen(
+                anuncioId = entrada.arguments?.getInt("id") ?: 0,
+                onBack = { navController.popBackStack() },
+                onNavegar = { destino -> navController.navegarPelaBarra(destino) },
+                onQrCode = { navController.abrirRegistrarEntrega() },
+                onEnviar = { motivo, detalhes ->
+                    // TODO: enviar para a API (POST /anuncios/{id}/denuncias)
+                    navController.popBackStack()
+                }
             )
         }
     }
