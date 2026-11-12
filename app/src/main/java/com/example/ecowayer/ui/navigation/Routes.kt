@@ -27,4 +27,11 @@ sealed class Routes(val route: String) {
 
     object Notificacoes : Routes("notificacoes")   // NOVO
 
+    object MeusAnuncios : Routes("meus_anuncios")
+
+    object Chat : Routes("chat")
+
+    object Conversa : Routes("conversa/{id}") {
+        fun criar(id: Int) = "conversa/$id"
+    }
 }

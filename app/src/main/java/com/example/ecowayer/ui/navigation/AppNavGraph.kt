@@ -11,6 +11,7 @@ import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.screens.CadastroScreen.CadastroScreen
 import com.example.ecowayer.ui.screens.boasvindas.BoasVindasScreen
 import com.example.ecowayer.ui.screens.carteira.CarteiraScreen
+import com.example.ecowayer.ui.screens.conversa.ConversaScreen
 import com.example.ecowayer.ui.screens.criarAnuncio.CriarAnuncioScreen
 import com.example.ecowayer.ui.screens.detalhes.DetalhesAnuncioScreen
 import com.example.ecowayer.ui.screens.ecopontos.EcoPontosScreen
@@ -19,11 +20,13 @@ import com.example.ecowayer.ui.screens.entrega.RegistrarEntregaScreen
 import com.example.ecowayer.ui.screens.home.HomeScreen
 import com.example.ecowayer.ui.screens.insignias.InsigniasScreen
 import com.example.ecowayer.ui.screens.loja.LojaScreen
+import com.example.ecowayer.ui.screens.mensagens.MensagensScreen
+import com.example.ecowayer.ui.screens.meusanuncios.MeusAnunciosScreen
+import com.example.ecowayer.ui.screens.notificacoes.NotificacoesScreen
 import com.example.ecowayer.ui.screens.perfil.PerfilScreen
 import com.example.ecowayer.ui.screens.splash.SplashScreen
 import com.example.ecowayer.ui.screens.vereficacao.VerificacaoEmailScreen
 import com.example.ecowayer.ui.screens.vereficacao.VerificacaoNumeroScreen
-import com.example.ecowayer.ui.screens.notificacoes.NotificacoesScreen
 
 private fun NavController.navegarPelaBarra(destino: DestinoBarra) {
     val rota = when (destino) {
@@ -31,7 +34,7 @@ private fun NavController.navegarPelaBarra(destino: DestinoBarra) {
         DestinoBarra.Loja -> Routes.Loja.route
         DestinoBarra.Carteira -> Routes.Carteira.route
         DestinoBarra.Perfil -> Routes.Perfil.route
-    } ?: return
+    }
 
     navigate(rota) {
         popUpTo(Routes.Home.route) { saveState = true }
@@ -188,9 +191,9 @@ fun AppNavGraph() {
                 onInsignias = { navController.navigate(Routes.Insignias.route) },
                 onNotificacoes = { navController.navigate(Routes.Notificacoes.route) },
                 // onTrocasPontos = { navController.navigate(Routes.TrocasPontos.route) },
-                // onMeusAnuncios = { navController.navigate(Routes.MeusAnuncios.route) },
+                onMeusAnuncios = { navController.navigate(Routes.MeusAnuncios.route) },
                 // onConfiguracoes = { navController.navigate(Routes.Configuracoes.route) },
-                // onChat = { navController.navigate(Routes.Chat.route) },
+                onChat = { navController.navigate(Routes.Chat.route) },
                 onSair = {
                     // TODO: limpar o token / chamar a API de logout antes de navegar
                     navController.navigate(Routes.Splash.route) {
@@ -215,5 +218,41 @@ fun AppNavGraph() {
                 onQrCode = { navController.abrirRegistrarEntrega() }
             )
         }
+
+        // Dentro do NavHost (antes estava fora, depois do fechamento do NavHost)
+        composable(Routes.MeusAnuncios.route) {
+            MeusAnunciosScreen(
+                onBack = { navController.popBackStack() },
+                onNavegar = { destino -> navController.navegarPelaBarra(destino) },
+                onQrCode = { navController.abrirRegistrarEntrega() },
+                onCriarAnuncio = { navController.navigate(Routes.CriarAnuncio.route) },
+                onAbrirAnuncio = { anuncio ->
+                    navController.navigate(Routes.DetalhesAnuncio.criar(anuncio.id))
+                }
+            )
+        }
+
+        composable(Routes.Chat.route) {
+            MensagensScreen(
+                onBack = { navController.popBackStack() },
+                onNavegar = { destino -> navController.navegarPelaBarra(destino) },
+                onQrCode = { navController.abrirRegistrarEntrega() },
+                onAbrirConversa = { conversa ->
+                    navController.navigate(Routes.Conversa.criar(conversa.id))
+                }
+            )
+        }
+
+        composable(
+            route = Routes.Conversa.route,
+            arguments = listOf(navArgument("id") { type = NavType.IntType })
+        ) { entrada ->
+            ConversaScreen(
+                conversaId = entrada.arguments?.getInt("id") ?: 0,
+                onBack = { navController.popBackStack() },
+                onQrCode = { navController.abrirRegistrarEntrega() }
+            )
+        }
     }
+
 }
