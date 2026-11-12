@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -48,6 +47,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ecowayer.ui.components.QrCodeDialog
+import com.example.ecowayer.ui.components.VoucherQr
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
 import java.text.SimpleDateFormat
@@ -71,8 +72,7 @@ private val BolhaRecebida = Color(0xFFF1F5F9)
 @Composable
 fun ConversaScreen(
     conversaId: Int = 0,
-    onBack: () -> Unit = {},
-    onQrCode: () -> Unit = {}
+    onBack: () -> Unit = {}
 ) {
     // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
     // Troque os dados abaixo por estados vindos de um ConversaViewModel:
@@ -105,6 +105,9 @@ fun ConversaScreen(
 
     var texto by remember { mutableStateOf("") }
     val estadoLista = rememberLazyListState()
+
+    var mostrarQr by remember { mutableStateOf(false) }
+    var voucher by remember { mutableStateOf<VoucherQr?>(null) }
 
     // Rola para a última mensagem ao abrir e quando chegar/enviar uma nova
     LaunchedEffect(mensagens.size) {
@@ -188,15 +191,10 @@ fun ConversaScreen(
                 Text(statusContato, fontSize = 12.sp, color = Color(0xFF555555))
             }
 
-            IconButton(onClick = {
-                // FLUXO: o QR leva para "Registrar entrega" (combinar a entrega/handover).
-                // No futuro, pode abrir já vinculado a esta conversa:
-                //   navController.navigate(Routes.RegistrarEntrega.route)
-                onQrCode()
-            }) {
+            IconButton(onClick = { mostrarQr = true }) {
                 Icon(
                     Icons.Outlined.QrCodeScanner,
-                    contentDescription = "Registrar entrega",
+                    contentDescription = "Gerar QR Code",
                     tint = EcoColors.Verde
                 )
             }
@@ -288,6 +286,25 @@ fun ConversaScreen(
                 }
             }
         }
+    }
+
+    // Popup do QR Code
+    if (mostrarQr) {
+        QrCodeDialog(
+            voucher = voucher,
+            onGerar = {
+                // INTEGRAÇÃO BACK-END (futuro): POST /conversas/{id}/voucher
+                voucher = VoucherQr(
+                    codigo = "VERDE-8371-ECO",      // TODO API
+                    validoAte = "15/05/2026",       // TODO API
+                    conteudoQr = "VERDE-8371-ECO"   // TODO API
+                )
+            },
+            onFechar = {
+                mostrarQr = false
+                voucher = null
+            }
+        )
     }
 }
 

@@ -250,7 +250,6 @@ fun AppNavGraph() {
             ConversaScreen(
                 conversaId = entrada.arguments?.getInt("id") ?: 0,
                 onBack = { navController.popBackStack() },
-                onQrCode = { navController.abrirRegistrarEntrega() }
             )
         }
     }
