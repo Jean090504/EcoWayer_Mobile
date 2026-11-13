@@ -82,11 +82,16 @@ import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateBearing
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 
-// Posição usada enquanto o GPS ainda não respondeu (Mapbox usa lng, lat)
-private const val LAT_PADRAO = -23.5505
-private const val LNG_PADRAO = -46.6333
-private const val ZOOM_INICIAL = 15.5
+// Centro de Barueri-SP (Mapbox usa lng, lat). Usado como posição inicial da câmera
+// e como origem da distância enquanto o GPS ainda não respondeu.
+private const val LAT_PADRAO = -23.5111
+private const val LNG_PADRAO = -46.8763
+private const val ZOOM_INICIAL = 14.5
 private val ALTURA_CARD_PONTO = 170.dp
+
+// Escala dos marcadores no mapa (1.0 = tamanho original da imagem).
+// As imagens marcador_* são grandes; 0.13 deixa o marcador com ~40dp. Ajuste se precisar.
+private const val ESCALA_ICONE_PONTO = 0.13
 
 // Câmera que segue o usuário SEM inclinação (sem 3D) e com o norte sempre para cima
 private val OPCOES_SEGUIR_USUARIO = FollowPuckViewportStateOptions.Builder()
@@ -293,7 +298,8 @@ private fun MapaEcoPontos(
                 }
             }
 
-            // Bolinha azul + câmera na localização do usuário
+            // Bolinha azul do usuário. A câmera NÃO segue o usuário automaticamente:
+            // ela fica no centro de Barueri até o usuário tocar no botão de localização.
             MapEffect(temPermissao) { mapView ->
                 if (temPermissao) {
                     mapView.location.updateSettings {
@@ -303,7 +309,6 @@ private fun MapaEcoPontos(
                     }
                     mapView.location.removeOnIndicatorPositionChangedListener(listenerPosicao)
                     mapView.location.addOnIndicatorPositionChangedListener(listenerPosicao)
-                    mapViewportState.transitionToFollowPuckState(OPCOES_SEGUIR_USUARIO)
                 }
             }
 
@@ -373,6 +378,7 @@ private fun MarcadoresEcoPontos(
         }
         PointAnnotation(point = Point.fromLngLat(ponto.longitude, ponto.latitude)) {
             iconImage = icone
+            iconSize = ESCALA_ICONE_PONTO   // reduz a imagem original para o tamanho de um marcador
             interactionsState.onClicked {
                 onClick(ponto)
                 true
