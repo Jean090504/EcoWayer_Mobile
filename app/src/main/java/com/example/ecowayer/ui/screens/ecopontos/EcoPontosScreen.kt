@@ -1,6 +1,8 @@
 package com.example.ecowayer.ui.screens.ecopontos
 
 import android.Manifest
+import android.content.ActivityNotFoundException
+import android.widget.Toast
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -64,6 +66,12 @@ import com.example.ecowayer.ui.components.FiltrosState
 import com.example.ecowayer.ui.ecopontos.EcoPontosViewModel
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
+import com.example.ecowayer.service.RotasRepository
+import com.mapbox.common.MapboxOptions
+import kotlinx.coroutines.CancellationException
+import retrofit2.HttpException
+import java.io.IOException
+import com.mapbox.maps.extension.compose.annotation.generated.PolylineAnnotation
 import com.mapbox.geojson.Point
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.Style
@@ -90,8 +98,8 @@ private const val ZOOM_INICIAL = 14.5
 private val ALTURA_CARD_PONTO = 170.dp
 
 // Escala dos marcadores no mapa (1.0 = tamanho original da imagem).
-// As imagens marcador_* são grandes; 0.13 deixa o marcador com ~40dp. Ajuste se precisar.
-private const val ESCALA_ICONE_PONTO = 0.13
+// Marcadores menores para reduzir a sobreposição no mapa.
+private const val ESCALA_ICONE_PONTO = 0.08
 
 // Câmera que segue o usuário SEM inclinação (sem 3D) e com o norte sempre para cima
 private val OPCOES_SEGUIR_USUARIO = FollowPuckViewportStateOptions.Builder()
@@ -119,6 +127,42 @@ fun EcoPontosScreen(
     var mostrarFiltros by remember { mutableStateOf(false) }
     var selecionado by remember { mutableStateOf<PontoColeta?>(null) }
     var posicaoUsuario by remember { mutableStateOf<Point?>(null) }
+
+    val rotasRepository = remember { RotasRepository() }
+    var tentativaRota by remember { mutableStateOf(0) }
+    var origemRota by remember { mutableStateOf<Point?>(null) }
+    var destinoRota by remember { mutableStateOf<PontoColeta?>(null) }
+    var rota by remember { mutableStateOf<List<Point>>(emptyList()) }
+    var carregandoRota by remember { mutableStateOf(false) }
+    var erroRota by remember { mutableStateOf<String?>(null) }
+
+    // Cancelada automaticamente se fechar o card ou selecionar outro destino.
+    LaunchedEffect(destinoRota, origemRota, tentativaRota) {
+        rota = emptyList()
+        erroRota = null
+        carregandoRota = false
+        val destino = destinoRota ?: return@LaunchedEffect
+        val origem = origemRota ?: return@LaunchedEffect
+        carregandoRota = true
+        try {
+            rota = rotasRepository.buscar(
+                origem, Point.fromLngLat(destino.longitude, destino.latitude),
+                MapboxOptions.accessToken
+            )
+        } catch (cancelamento: CancellationException) {
+            throw cancelamento
+        } catch (erro: HttpException) {
+            erroRota = if (erro.code() == 401 || erro.code() == 403)
+                "O token do Mapbox não autorizou a consulta de rotas."
+            else "Não foi possível consultar a rota. Tente novamente."
+        } catch (erro: IOException) {
+            erroRota = "Não foi possível conectar. Verifique sua internet e tente novamente."
+        } catch (erro: Exception) {
+            erroRota = "Não foi possível encontrar uma rota. Verifique a configuração do Mapbox e tente novamente."
+        } finally {
+            carregandoRota = false
+        }
+    }
 
     // Dados da API (GET /meraki/ecowayer/user/ponto_coleta)
     val todosPontos by viewModel.pontos.collectAsState()
@@ -186,10 +230,18 @@ fun EcoPontosScreen(
                 mapViewportState = mapViewportState,
                 onPosicaoUsuario = { posicaoUsuario = it },
                 onSelecionar = {
+                    destinoRota = null
+                    rota = emptyList()
+                    erroRota = null
                     selecionado = it
                     onSelecionarPonto(it)
                 },
-                onFecharCard = { selecionado = null },
+                onFecharCard = {
+                    selecionado = null
+                    destinoRota = null
+                    rota = emptyList()
+                    erroRota = null
+                },
                 onRecentralizar = {
                     if (temPermissao) {
                         mapViewportState.transitionToFollowPuckState(OPCOES_SEGUIR_USUARIO)
@@ -197,7 +249,26 @@ fun EcoPontosScreen(
                         pedirPermissao()
                     }
                 },
-                onTracarRota = { abrirRotaNoMaps(contexto, it) },
+                rota = rota,
+                carregandoRota = carregandoRota,
+                erroRota = erroRota,
+                onSeguirGoogleMaps = { abrirRotaNoMaps(contexto, it) },
+                onTracarRota = { ponto ->
+                    val origem = posicaoUsuario
+                    when {
+                        !temPermissao -> {
+                            pedirPermissao()
+                            erroRota = "Permita a localização para traçar a rota."
+                        }
+                        origem == null -> erroRota = "Aguardando sua localização. Tente novamente em instantes."
+                        else -> {
+                            origemRota = origem
+                            destinoRota = ponto
+                            tentativaRota++
+                            erroRota = null
+                        }
+                    }
+                },
                 modifier = Modifier
                     .padding(vertical = 12.dp)
                     .weight(1f)
@@ -211,6 +282,9 @@ fun EcoPontosScreen(
                 onAplicar = { novos ->
                     filtros = novos
                     selecionado = null
+                    destinoRota = null
+                    rota = emptyList()
+                    erroRota = null
                 }
             )
         }
@@ -246,7 +320,16 @@ private fun rememberPermissaoLocalizacao(): Pair<Boolean, () -> Unit> {
 private fun abrirRotaNoMaps(contexto: Context, ponto: PontoColeta) {
     val uri = Uri.parse("google.navigation:q=${ponto.latitude},${ponto.longitude}")
     val intent = Intent(Intent.ACTION_VIEW, uri).setPackage("com.google.android.apps.maps")
-    contexto.startActivity(intent)
+    try {
+        contexto.startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+        val web = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${ponto.latitude},${ponto.longitude}&travelmode=driving&dir_action=navigate")
+        try {
+            contexto.startActivity(Intent(Intent.ACTION_VIEW, web))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(contexto, "Nenhum aplicativo disponível para abrir a rota.", Toast.LENGTH_LONG).show()
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -265,6 +348,10 @@ private fun MapaEcoPontos(
     onFecharCard: () -> Unit,
     onRecentralizar: () -> Unit,
     onTracarRota: (PontoColeta) -> Unit,
+    rota: List<Point>,
+    carregandoRota: Boolean,
+    erroRota: String?,
+    onSeguirGoogleMaps: (PontoColeta) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Listener único: evita adicionar um novo a cada vez que o MapEffect roda
@@ -312,6 +399,13 @@ private fun MapaEcoPontos(
                 }
             }
 
+            if (rota.size >= 2) {
+                PolylineAnnotation(points = rota) {
+                    lineColor = EcoColors.Verde
+                    lineWidth = 5.0
+                }
+            }
+
             MarcadoresEcoPontos(
                 pontos = pontos,
                 onClick = { ponto ->
@@ -346,6 +440,10 @@ private fun MapaEcoPontos(
                 distancia = distancia,
                 onFechar = onFecharCard,
                 onTracarRota = { onTracarRota(ponto) },
+                rotaPronta = rota.size >= 2,
+                carregandoRota = carregandoRota,
+                erroRota = erroRota,
+                onSeguirGoogleMaps = { onSeguirGoogleMaps(ponto) },
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
@@ -435,6 +533,10 @@ private fun CardPontoSelecionado(
     distancia: String,
     onFechar: () -> Unit,
     onTracarRota: () -> Unit,
+    rotaPronta: Boolean,
+    carregandoRota: Boolean,
+    erroRota: String?,
+    onSeguirGoogleMaps: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -469,16 +571,30 @@ private fun CardPontoSelecionado(
             }
         }
 
+        erroRota?.let {
+            Text(it, color = Color(0xFFB00020), fontSize = 12.sp,
+                modifier = Modifier.padding(bottom = 8.dp))
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(44.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(EcoColors.Verde)
-                .clickable { onTracarRota() },
+                .clickable(enabled = !carregandoRota) {
+                    if (rotaPronta) onSeguirGoogleMaps() else onTracarRota()
+                },
             contentAlignment = Alignment.Center
         ) {
-            Text("Traçar rota", color = Color.White, fontWeight = FontWeight.Bold)
+            Text(
+                when {
+                    carregandoRota -> "Traçando rota..."
+                    rotaPronta -> "Seguir com Google Maps"
+                    else -> "Traçar rota"
+                },
+                color = Color.White, fontWeight = FontWeight.Bold
+            )
         }
     }
 }
