@@ -1,7 +1,7 @@
 package com.example.ecowayer.ui.screens.ecopontos
 
 import android.location.Location
-import com.example.ecowayer.data.model.PontoColetaDto
+import com.example.ecowayer.model.PontoColeta
 import java.text.Normalizer
 
 fun String.normalizar(): String =
@@ -9,27 +9,27 @@ fun String.normalizar(): String =
         .replace("\\p{Mn}+".toRegex(), "")
         .lowercase()
 
-fun PontoColetaDto.bairro() = endereco.firstOrNull()?.bairro.orEmpty()
+fun PontoColeta.bairro() = endereco.firstOrNull()?.bairro.orEmpty()
 
-fun PontoColetaDto.enderecoCurto(): String {
+fun PontoColeta.enderecoCurto(): String {
     val e = endereco.firstOrNull() ?: return ""
     return "${e.rua}, ${e.numero} - ${e.bairro}"
 }
 
-fun PontoColetaDto.coincideComBusca(busca: String): Boolean {
+fun PontoColeta.coincideComBusca(busca: String): Boolean {
     if (busca.isBlank()) return true
     val b = busca.normalizar()
     return nome.normalizar().contains(b) ||
             bairro().normalizar().contains(b) ||
-            materialAceito.any { it.nome.normalizar().contains(b) }
+            materiais.any { it.nome.normalizar().contains(b) }
 }
 
 /** "PET" (chip da Home) = "Plástico" (API). */
 fun String.paraMaterialApi(): String = if (this == "PET") "Plástico" else this
 
-fun PontoColetaDto.aceita(materiais: Collection<String>): Boolean =
-    materiais.isEmpty() || materiais.any { m ->
-        materialAceito.any { it.nome.normalizar() == m.paraMaterialApi().normalizar() }
+fun PontoColeta.aceita(materiaisSelecionados: Collection<String>): Boolean =
+    materiaisSelecionados.isEmpty() || materiaisSelecionados.any { m ->
+        materiais.any { it.nome.normalizar() == m.paraMaterialApi().normalizar() }
     }
 
 fun distanciaMetros(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Float {

@@ -57,10 +57,11 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ecowayer.R
-import com.example.ecowayer.data.model.PontoColetaDto
+import com.example.ecowayer.model.PontoColeta
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.components.FiltrosState
+import com.example.ecowayer.ui.ecopontos.EcoPontosViewModel
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
 import com.mapbox.geojson.Point
@@ -102,7 +103,7 @@ private val OPCOES_SEGUIR_USUARIO = FollowPuckViewportStateOptions.Builder()
 fun EcoPontosScreen(
     onNavegar: (DestinoBarra) -> Unit = {},
     onQrCode: () -> Unit = {},
-    onSelecionarPonto: (PontoColetaDto) -> Unit = {},
+    onSelecionarPonto: (PontoColeta) -> Unit = {},
     viewModel: EcoPontosViewModel = viewModel()
 ) {
     val contexto = LocalContext.current
@@ -111,10 +112,10 @@ fun EcoPontosScreen(
     var busca by remember { mutableStateOf("") }
     var filtros by remember { mutableStateOf(FiltrosState()) }
     var mostrarFiltros by remember { mutableStateOf(false) }
-    var selecionado by remember { mutableStateOf<PontoColetaDto?>(null) }
+    var selecionado by remember { mutableStateOf<PontoColeta?>(null) }
     var posicaoUsuario by remember { mutableStateOf<Point?>(null) }
 
-    // Dados da API (GET /meraki/ecowayer/admin/ponto-coleta)
+    // Dados da API (GET /meraki/ecowayer/user/ponto_coleta)
     val todosPontos by viewModel.pontos.collectAsState()
     val erro by viewModel.erro.collectAsState()
     val pontos = remember(todosPontos, busca, filtros) {
@@ -237,7 +238,7 @@ private fun rememberPermissaoLocalizacao(): Pair<Boolean, () -> Unit> {
     return temPermissao to { launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION) }
 }
 
-private fun abrirRotaNoMaps(contexto: Context, ponto: PontoColetaDto) {
+private fun abrirRotaNoMaps(contexto: Context, ponto: PontoColeta) {
     val uri = Uri.parse("google.navigation:q=${ponto.latitude},${ponto.longitude}")
     val intent = Intent(Intent.ACTION_VIEW, uri).setPackage("com.google.android.apps.maps")
     contexto.startActivity(intent)
@@ -249,16 +250,16 @@ private fun abrirRotaNoMaps(contexto: Context, ponto: PontoColetaDto) {
 
 @Composable
 private fun MapaEcoPontos(
-    pontos: List<PontoColetaDto>,
-    selecionado: PontoColetaDto?,
+    pontos: List<PontoColeta>,
+    selecionado: PontoColeta?,
     posicaoUsuario: Point?,
     temPermissao: Boolean,
     mapViewportState: MapViewportState,
     onPosicaoUsuario: (Point) -> Unit,
-    onSelecionar: (PontoColetaDto) -> Unit,
+    onSelecionar: (PontoColeta) -> Unit,
     onFecharCard: () -> Unit,
     onRecentralizar: () -> Unit,
-    onTracarRota: (PontoColetaDto) -> Unit,
+    onTracarRota: (PontoColeta) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Listener único: evita adicionar um novo a cada vez que o MapEffect roda
@@ -349,8 +350,8 @@ private fun MapaEcoPontos(
 @Composable
 @MapboxMapComposable
 private fun MarcadoresEcoPontos(
-    pontos: List<PontoColetaDto>,
-    onClick: (PontoColetaDto) -> Unit
+    pontos: List<PontoColeta>,
+    onClick: (PontoColeta) -> Unit
 ) {
     // Drawables em res/drawable: marcador_verde, marcador_azul, marcador_laranja, marcador_cinza
     val verde = rememberIconImage("marcador_verde", painterResource(R.drawable.marcador_verde))
@@ -359,11 +360,16 @@ private fun MarcadoresEcoPontos(
     val cinza = rememberIconImage("marcador_cinza", painterResource(R.drawable.marcador_cinza))
 
     pontos.forEach { ponto ->
-        val icone = when (ponto.categoria) {
-            "Plástico" -> verde
-            "Vidro" -> azul
-            "Papel" -> laranja
-            else -> cinza   // Metal, Eletrônicos, Óleo de Cozinha...
+        // A API devolve só id_categoria, então a cor vem do primeiro material aceito.
+        // Ponto inativo fica cinza.
+        val icone = when {
+            ponto.status != "ativo" -> cinza
+            else -> when (ponto.materiais.firstOrNull()?.nome) {
+                "Plástico" -> verde
+                "Vidro" -> azul
+                "Papel" -> laranja
+                else -> cinza   // Metal, Eletrônicos, Óleo de Cozinha...
+            }
         }
         PointAnnotation(point = Point.fromLngLat(ponto.longitude, ponto.latitude)) {
             iconImage = icone
@@ -419,7 +425,7 @@ private fun TituloEcoPontos() {
 
 @Composable
 private fun CardPontoSelecionado(
-    ponto: PontoColetaDto,
+    ponto: PontoColeta,
     distancia: String,
     onFechar: () -> Unit,
     onTracarRota: () -> Unit,
@@ -452,7 +458,7 @@ private fun CardPontoSelecionado(
             modifier = Modifier.padding(vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            ponto.materialAceito.take(4).forEach { material ->
+            ponto.materiais.take(4).forEach { material ->
                 ChipMaterial(material.nome)
             }
         }
