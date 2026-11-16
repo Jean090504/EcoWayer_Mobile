@@ -22,10 +22,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +46,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ecowayer.ui.components.CampoTexto
+import com.example.ecowayer.model.CadastroDraft
+import com.example.ecowayer.model.Genero
+import com.example.ecowayer.service.RetrofitFactory
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
 import com.example.ecowayer.util.MaskTransformation
@@ -50,7 +56,7 @@ import com.example.ecowayer.util.MaskTransformation
 @Composable
 fun CadastroScreen(
     onBack: () -> Unit,
-    onAvancar: () -> Unit
+    onAvancar: (CadastroDraft) -> Unit
 ) {
     // Estados temporários. Quando ligar na API, isso vai para um ViewModel.
     var nome by remember { mutableStateOf("") }
@@ -61,6 +67,17 @@ fun CadastroScreen(
     var senha by remember { mutableStateOf("") }
     var confirmarSenha by remember { mutableStateOf("") }
     var aceitou by remember { mutableStateOf(false) }
+    var generos by remember { mutableStateOf<List<Genero>>(emptyList()) }
+    var generoSelecionado by remember { mutableStateOf<Genero?>(null) }
+    var menuGenerosAberto by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        runCatching {
+            RetrofitFactory.getCadastroService().listarGeneros()
+        }.onSuccess { resposta ->
+            generos = resposta.response?.genero.orEmpty()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -152,6 +169,34 @@ fun CadastroScreen(
                 visualTransformation = MaskTransformation("(##) #####-####")
             )
 
+            Box {
+                Button(
+                    onClick = { menuGenerosAberto = true },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = EcoColors.TextoPrimario
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(generoSelecionado?.nome ?: "Selecione seu gênero")
+                }
+                DropdownMenu(
+                    expanded = menuGenerosAberto,
+                    onDismissRequest = { menuGenerosAberto = false }
+                ) {
+                    generos.forEach { genero ->
+                        DropdownMenuItem(
+                            text = { Text(genero.nome) },
+                            onClick = {
+                                generoSelecionado = genero
+                                menuGenerosAberto = false
+                            }
+                        )
+                    }
+                }
+            }
+
             CampoTexto(
                 label = "Senha",
                 value = senha,
@@ -202,8 +247,20 @@ fun CadastroScreen(
 
         // Botão fixo embaixo
         Button(
-            onClick = onAvancar,
-            enabled = aceitou,
+            onClick = {
+                onAvancar(
+                    CadastroDraft(
+                        nome = nome,
+                        dataNascimento = nascimento,
+                        cpf = cpf,
+                        email = email,
+                        telefone = telefone,
+                        senha = senha,
+                        idGenero = generoSelecionado!!.id
+                    )
+                )
+            },
+            enabled = aceitou && generoSelecionado != null && senha == confirmarSenha,
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = EcoColors.Verde,

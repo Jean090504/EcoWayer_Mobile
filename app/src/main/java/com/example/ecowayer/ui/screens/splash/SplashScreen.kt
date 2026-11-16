@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +32,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ecowayer.R
 import com.example.ecowayer.ui.components.LoginPanel
 import com.example.ecowayer.ui.theme.EcowayerTheme
@@ -42,14 +44,23 @@ private const val SPLASH_DURATION_MS = 4000
 
 @Composable
 fun SplashScreen(
-    onEntrar: (email: String, senha: String) -> Unit,
+    onEntrar: () -> Unit,
     onCriarConta: () -> Unit,
     onEsqueciSenha: () -> Unit
 ) {
+    val loginViewModel: LoginViewModel = viewModel()
+    val loginState by loginViewModel.estado.collectAsState()
     val logoAlpha = remember { Animatable(0f) }
     val logoScale = remember { Animatable(0.6f) }
     val bgScale = remember { Animatable(1f) }
     var mostrarLogin by remember { mutableStateOf(false) }
+
+    LaunchedEffect(loginState.autenticado) {
+        if (loginState.autenticado) {
+            loginViewModel.consumirSucesso()
+            onEntrar()
+        }
+    }
 
     LaunchedEffect(Unit) {
         coroutineScope {
@@ -117,9 +128,11 @@ fun SplashScreen(
                 .imePadding()
         ) {
             LoginPanel(
-                onEntrar = onEntrar,
+                onEntrar = { email, senha -> loginViewModel.entrar(email, senha) },
                 onCriarConta = onCriarConta,
                 onEsqueciSenha = onEsqueciSenha,
+                carregando = loginState.carregando,
+                erro = loginState.erro,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -130,6 +143,6 @@ fun SplashScreen(
 @Composable
 fun SplashScreenPreview() {
     EcowayerTheme {
-        SplashScreen(onEntrar = { _, _ -> }, onCriarConta = {}, onEsqueciSenha = {})
+        SplashScreen(onEntrar = {}, onCriarConta = {}, onEsqueciSenha = {})
     }
 }

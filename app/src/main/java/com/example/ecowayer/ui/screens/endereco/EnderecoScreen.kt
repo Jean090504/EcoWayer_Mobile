@@ -39,6 +39,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ecowayer.ui.components.CampoTexto
+import com.example.ecowayer.model.EnderecoDraft
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
 import com.example.ecowayer.util.MaskTransformation
@@ -46,7 +47,9 @@ import com.example.ecowayer.util.MaskTransformation
 @Composable
 fun EnderecoScreen(
     onBack: () -> Unit,
-    onFinalizar: () -> Unit
+    onFinalizar: (EnderecoDraft) -> Unit,
+    carregando: Boolean = false,
+    erro: String? = null
 ) {
     var cep by remember { mutableStateOf("") }
     var cidade by remember { mutableStateOf("") }
@@ -171,18 +174,11 @@ fun EnderecoScreen(
 
         Button(
             onClick = {
-                // --- INTEGRAÇÃO BACK-END (futuro) -------------------------
-                // Aqui você junta os dados de TODAS as telas do cadastro
-                // (nome, cpf, e-mail, telefone, senha + endereço) e envia:
-                //
-                // viewModel.finalizarCadastro(
-                //     cep, cidade, estado, bairro, logradouro, numero, complemento
-                // )                                   // POST /usuarios
-                //   onSuccess -> onFinalizar()
-                //   onError   -> mostrar mensagem
-                // ---------------------------------------------------------
-                onFinalizar() // temporário
+                onFinalizar(
+                    EnderecoDraft(cep, cidade, estado, bairro, logradouro, numero, complemento)
+                )
             },
+            enabled = !carregando,
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = EcoColors.Verde,
@@ -194,7 +190,19 @@ fun EnderecoScreen(
                 .navigationBarsPadding()
                 .height(52.dp)
         ) {
-            Text("Finalizar cadastro", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(
+                if (carregando) "Criando conta..." else "Finalizar cadastro",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        erro?.let {
+            Text(
+                text = it,
+                color = Color(0xFFB3261E),
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
         }
     }
 }

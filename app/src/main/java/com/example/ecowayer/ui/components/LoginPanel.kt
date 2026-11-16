@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -34,22 +33,13 @@ import androidx.compose.ui.unit.sp
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
 
-// Topo ondulado do painel (mexa nos valores para ajustar a curva do Figma)
-private val WaveShape = GenericShape { size, _ ->
-    val w = size.width
-    val h = size.height
-    moveTo(0f, h * 0.10f)
-    cubicTo(w * 0.30f, h * 0.22f, w * 0.60f, 0f, w, h * 0.03f)
-    lineTo(w, h)
-    lineTo(0f, h)
-    close()
-}
-
 @Composable
 fun LoginPanel(
     onEntrar: (email: String, senha: String) -> Unit,
     onCriarConta: () -> Unit,
     onEsqueciSenha: () -> Unit,
+    carregando: Boolean = false,
+    erro: String? = null,
     modifier: Modifier = Modifier
 ) {
     var email by remember { mutableStateOf("") }
@@ -59,9 +49,12 @@ fun LoginPanel(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.White, WaveShape)
+            .background(
+                color = Color.White,
+                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+            )
             .verticalScroll(rememberScrollState())
-            .padding(start = 24.dp, end = 24.dp, top = 64.dp, bottom = 24.dp)
+            .padding(start = 24.dp, end = 24.dp, top = 32.dp, bottom = 24.dp)
     ) {
         Text(
             text = "Login",
@@ -115,15 +108,28 @@ fun LoginPanel(
 
         Spacer(Modifier.height(8.dp))
 
+        erro?.let {
+            Text(
+                text = it,
+                color = Color(0xFFB3261E),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
+        }
+
         Button(
-            onClick = { onEntrar(email.trim(), senha) },
+            onClick = { if (!carregando) onEntrar(email.trim(), senha) },
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = EcoColors.Roxo),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)
         ) {
-            Text("Entrar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(
+                text = if (carregando) "Entrando..." else "Entrar",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
 
         Row(

@@ -1,6 +1,11 @@
 package com.example.ecowayer.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -8,6 +13,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.ecowayer.ui.components.DestinoBarra
+import com.example.ecowayer.service.RetrofitFactory
+import com.example.ecowayer.model.CadastroDraft
+import com.example.ecowayer.model.EnderecoCadastroRequest
+import com.example.ecowayer.model.EnderecoDraft
+import com.example.ecowayer.model.UsuarioCadastroRequest
+import kotlinx.coroutines.launch
+import retrofit2.awaitResponse
 import com.example.ecowayer.ui.screens.CadastroScreen.CadastroScreen
 import com.example.ecowayer.ui.screens.boasvindas.BoasVindasScreen
 import com.example.ecowayer.ui.screens.carteira.CarteiraScreen
@@ -51,9 +63,22 @@ private fun NavController.abrirRegistrarEntrega() {
     }
 }
 
+private fun String.toIsoDate(): String {
+    val digitos = filter(Char::isDigit)
+    return if (digitos.length == 8) {
+        "${digitos.substring(4, 8)}-${digitos.substring(2, 4)}-${digitos.substring(0, 2)}"
+    } else {
+        this
+    }
+}
+
 @Composable
 fun AppNavGraph() {
     val navController = rememberNavController()
+    val scope = rememberCoroutineScope()
+    var cadastro by remember { mutableStateOf<CadastroDraft?>(null) }
+    var cadastroCarregando by remember { mutableStateOf(false) }
+    var cadastroErro by remember { mutableStateOf<String?>(null) }
 
     NavHost(
         navController = navController,
@@ -61,7 +86,7 @@ fun AppNavGraph() {
     ) {
         composable(Routes.Splash.route) {
             SplashScreen(
-                onEntrar = { email, senha ->
+                onEntrar = {
                     navController.navigate(Routes.Home.route) {
                         popUpTo(Routes.Splash.route) { inclusive = true }
                     }
@@ -76,8 +101,9 @@ fun AppNavGraph() {
         composable(Routes.Cadastro.route) {
             CadastroScreen(
                 onBack = { navController.popBackStack() },
-                onAvancar = {
-                    // Futuro: chamar a API que envia o código SMS antes de navegar
+                onAvancar = { dados ->
+                    cadastro = dados
+                    cadastroErro = null
                     navController.navigate(Routes.VerificacaoNumero.route)
                 }
             )
@@ -100,9 +126,66 @@ fun AppNavGraph() {
         composable(Routes.Endereco.route) {
             EnderecoScreen(
                 onBack = { navController.popBackStack() },
-                onFinalizar = {
-                    navController.navigate(Routes.BoasVindas.route) {
-                        popUpTo(Routes.Splash.route) { inclusive = true }
+                carregando = cadastroCarregando,
+                erro = cadastroErro,
+                onFinalizar = { endereco ->
+                    val dados = cadastro ?: run {
+                        cadastroErro = "Os dados do cadastro não foram encontrados."
+                        return@EnderecoScreen
+                    }
+                    scope.launch {
+                        cadastroCarregando = true
+                        cadastroErro = null
+                        try {
+                            val servico = RetrofitFactory.getCadastroService()
+                            val respostaEndereco = servico.criarEndereco(
+                                EnderecoCadastroRequest(
+                                    cep = endereco.cep,
+                                    rua = endereco.rua,
+                                    numero = endereco.numero,
+                                    complemento = endereco.complemento.ifBlank { null },
+                                    bairro = endereco.bairro,
+                                    cidade = endereco.cidade,
+                                    estado = endereco.estado,
+                                    sigla = endereco.estado,
+                                    id_externo = "mobile-${endereco.cep}-${endereco.numero}"
+                                )
+                            ).awaitResponse()
+                            val idEndereco = respostaEndereco.body()?.response?.endereco?.id
+                                ?.takeIf { it > 0 }
+                                ?: error(respostaEndereco.body()?.message ?: "Não foi possível criar o endereço.")
+
+                            val respostaUsuario = servico.criarUsuario(
+                                UsuarioCadastroRequest(
+                                    nome = dados.nome,
+                                    cpf = dados.cpf,
+                                    data_nascimento = dados.dataNascimento.toIsoDate(),
+                                    id_genero = dados.idGenero,
+                                    email = dados.email,
+                                    telefone = dados.telefone,
+                                    senha = dados.senha,
+                                    id_endereco = idEndereco
+                                )
+                            ).awaitResponse()
+                            if (!respostaUsuario.isSuccessful || respostaUsuario.body()?.status != true) {
+                                error(respostaUsuario.body()?.message ?: "Não foi possível criar a conta.")
+                            }
+
+                            val login = RetrofitFactory.getAuthService()
+                                .login(com.example.ecowayer.model.LoginRequest(dados.email, dados.senha))
+                                .awaitResponse()
+                            if (!login.isSuccessful || login.body()?.status != true) {
+                                error("Conta criada. Faça login para entrar no aplicativo.")
+                            }
+
+                            navController.navigate(Routes.BoasVindas.route) {
+                                popUpTo(Routes.Splash.route) { inclusive = true }
+                            }
+                        } catch (erro: Exception) {
+                            cadastroErro = erro.message ?: "Não foi possível concluir o cadastro."
+                        } finally {
+                            cadastroCarregando = false
+                        }
                     }
                 }
             )
@@ -203,7 +286,7 @@ fun AppNavGraph() {
                 // onConfiguracoes = { navController.navigate(Routes.Configuracoes.route) },
                 onChat = { navController.navigate(Routes.Chat.route) },
                 onSair = {
-                    // TODO: limpar o token / chamar a API de logout antes de navegar
+                    RetrofitFactory.limparSessao()
                     navController.navigate(Routes.Splash.route) {
                         popUpTo(0) { inclusive = true }
                     }

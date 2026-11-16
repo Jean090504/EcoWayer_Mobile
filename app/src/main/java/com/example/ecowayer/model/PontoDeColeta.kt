@@ -9,6 +9,79 @@ data class ApiResponse<T>(
     val response: T? = null
 )
 
+data class LoginRequest(
+    val email: String,
+    val senha: String
+)
+
+data class LoginResponse(
+    val usuario: Usuario? = null
+)
+
+data class Usuario(
+    val id: Int = 0,
+    val nome: String = "",
+    val email: String = "",
+    val foto: String? = null
+)
+
+data class Genero(
+    val id: Int = 0,
+    val nome: String = "",
+    val sigla: String = ""
+)
+
+data class GeneroLista(
+    val genero: List<Genero> = emptyList()
+)
+
+data class CadastroDraft(
+    val nome: String,
+    val dataNascimento: String,
+    val cpf: String,
+    val email: String,
+    val telefone: String,
+    val senha: String,
+    val idGenero: Int
+)
+
+data class EnderecoDraft(
+    val cep: String,
+    val cidade: String,
+    val estado: String,
+    val bairro: String,
+    val rua: String,
+    val numero: String,
+    val complemento: String
+)
+
+data class EnderecoCadastroRequest(
+    val cep: String,
+    val rua: String,
+    val numero: String,
+    val complemento: String?,
+    val bairro: String,
+    val cidade: String,
+    val estado: String,
+    val sigla: String,
+    val id_externo: String = ""
+)
+
+data class EnderecoCriado(val id: Int = 0)
+
+data class EnderecoResponse(val endereco: EnderecoCriado? = null)
+
+data class UsuarioCadastroRequest(
+    val nome: String,
+    val cpf: String,
+    val data_nascimento: String,
+    val id_genero: Int,
+    val email: String,
+    val telefone: String,
+    val senha: String,
+    val id_endereco: Int
+)
+
 data class PontoColetaLista(
     val count: Int = 0,
     @SerializedName("ponto_coleta") val pontos: List<PontoColeta> = emptyList()

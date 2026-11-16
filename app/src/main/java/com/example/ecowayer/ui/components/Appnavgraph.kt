@@ -23,7 +23,7 @@ fun AppNavGraph() {
     ) {
         composable(Routes.Splash.route) {
             SplashScreen(
-                onEntrar = { email, senha ->
+                onEntrar = {
                     navController.navigate(Routes.Home.route) {
                         popUpTo(Routes.Splash.route) { inclusive = true }
                     }

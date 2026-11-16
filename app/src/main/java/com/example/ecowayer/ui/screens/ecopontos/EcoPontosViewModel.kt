@@ -25,7 +25,7 @@ class EcoPontosViewModel : ViewModel() {
     }
 
     fun carregar() {
-        RetrofitFactory().getPontoColetaService().listar()
+        RetrofitFactory.getPontoColetaService().listar()
             .enqueue(object : Callback<ApiResponse<PontoColetaLista>> {
                 override fun onResponse(
                     call: Call<ApiResponse<PontoColetaLista>>,
