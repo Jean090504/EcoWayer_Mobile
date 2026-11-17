@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ecowayer.model.LoginRequest
 import com.example.ecowayer.service.RetrofitFactory
+import com.example.ecowayer.service.SessionStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -33,7 +34,8 @@ class LoginViewModel : ViewModel() {
                     .awaitResponse()
                 val corpo = resposta.body()
 
-                if (resposta.isSuccessful && corpo?.status == true) {
+                if (resposta.isSuccessful && corpo?.status == true && corpo.response?.usuario != null) {
+                    SessionStore.saveUser(corpo.response.usuario)
                     _estado.value = LoginUiState(autenticado = true)
                 } else {
                     _estado.value = LoginUiState(

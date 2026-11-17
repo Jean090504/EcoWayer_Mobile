@@ -28,6 +28,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,8 +42,11 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ecowayer.model.AnuncioApi
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
+import com.example.ecowayer.ui.components.ImagemRemota
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
 
@@ -65,6 +71,25 @@ data class Anunciante(
     val fotoUrl: String? = null
 )
 
+private fun AnuncioApi.toDetalhe(): DetalheAnuncio {
+    val modalidade = modalidade_nome ?: "Anúncio"
+    val precoTexto = when {
+        modalidade.contains("doa", true) -> "Grátis (Doação)"
+        modalidade.contains("troca", true) -> "Troca"
+        preco != null -> "R$ %.2f".format(java.util.Locale("pt", "BR"), preco)
+        else -> "Preço não informado"
+    }
+    return DetalheAnuncio(
+        titulo = nome,
+        preco = precoTexto,
+        tipo = modalidade,
+        condicao = condicao_nome ?: "Não informado",
+        descricao = descricao.orEmpty(),
+        imagemUrl = imagem,
+        anunciante = Anunciante(vendedor?.nome ?: "Usuário EcoWayer", "—", 0, vendedor?.foto)
+    )
+}
+
 @Composable
 fun DetalhesAnuncioScreen(
     anuncioId: Int = 0,
@@ -74,28 +99,17 @@ fun DetalhesAnuncioScreen(
     onConversar: () -> Unit = {},
     onDenunciar: () -> Unit = {}
 ) {
-    // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
-    // Troque o mock abaixo por um estado vindo do ViewModel:
-    //
-    // val viewModel: DetalhesAnuncioViewModel = viewModel()
-    // val anuncio by viewModel.anuncio.collectAsState()
-    //
-    // LaunchedEffect(anuncioId) {
-    //     viewModel.carregar(anuncioId)    // GET /anuncios/{id}
-    // }
-    //
-    // Trate também carregando e erro (ex.: CircularProgressIndicator /
-    // mensagem com botão "Tentar de novo") antes de mostrar o conteúdo.
-    // ----------------------------------------------------------------------
-    val anuncio = DetalheAnuncio(          // TODO API
-        titulo = "Papelão para Mudança",
-        preco = "R$ 15,00",
-        tipo = "Venda",
-        condicao = "Seminovo",
-        descricao = "Cerca de 10 caixas desmontadas, ideais para mudança ou artesanato. " +
-                "Todas secas, limpas e bem armazenadas no bairro de Pinheiros.",
-        anunciante = Anunciante("Fernando Pessoa", "5.0", 12)
-    )
+    val viewModel: DetalhesAnuncioViewModel = viewModel()
+    val estado by viewModel.estado.collectAsState()
+    LaunchedEffect(anuncioId) { viewModel.carregar(anuncioId) }
+    val anuncioApi = estado.anuncio
+    if (anuncioApi == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(estado.erro ?: "Carregando anúncio...", color = if (estado.erro == null) Color.Gray else Color(0xFFB3261E))
+        }
+        return
+    }
+    val anuncio = anuncioApi.toDetalhe()
 
     Scaffold(
         containerColor = Color.White,
@@ -168,12 +182,13 @@ fun DetalhesAnuncioScreen(
                 //         .height(220.dp)
                 //         .clip(RoundedCornerShape(16.dp))
                 // )
-                Box(
+                ImagemRemota(
+                    url = anuncio.imagemUrl,
+                    descricao = anuncio.titulo,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(220.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFFE0E0E0))
                 )
                 // -------------------------------------------------------------
 
@@ -278,11 +293,12 @@ private fun CardAnunciante(anunciante: Anunciante) {
         //     contentDescription = anunciante.nome,
         //     modifier = Modifier.size(44.dp).clip(CircleShape)
         // )
-        Box(
+        ImagemRemota(
+            url = anunciante.fotoUrl,
+            descricao = anunciante.nome,
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFE0E0E0))
         )
         // -------------------------------------------------------------------
 

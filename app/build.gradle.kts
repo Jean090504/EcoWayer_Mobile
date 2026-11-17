@@ -3,22 +3,23 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+import java.util.Properties
+
+val localProperties = Properties()
+rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use {
+    localProperties.load(it)
+}
+
 
 
 android {
     namespace = "com.example.ecowayer"
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
     compileSdk {
         version = release(36)
-    }
-
-    defaultConfig {
-        applicationId = "com.example.ecowayer"
-        minSdk = 24
-        targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -33,8 +34,35 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    buildFeatures {
-        compose = true
+    defaultConfig {
+        applicationId = "com.example.ecowayer"
+        minSdk = 24
+        targetSdk = 36
+        versionCode = 1
+        versionName = "1.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        val apiBaseUrl = providers.gradleProperty("API_BASE_URL")
+            .orElse("http://10.0.2.2:3000/meraki/ecowayer/")
+            .get()
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+        val devAutoLogin = providers.gradleProperty("DEV_AUTO_LOGIN")
+            .orElse(localProperties.getProperty("DEV_AUTO_LOGIN", "false"))
+            .get()
+        val devAutoLoginEmail = providers.gradleProperty("DEV_AUTO_LOGIN_EMAIL")
+            .orElse(localProperties.getProperty("DEV_AUTO_LOGIN_EMAIL", ""))
+            .get()
+        val devAutoLoginPassword = providers.gradleProperty("DEV_AUTO_LOGIN_PASSWORD")
+            .orElse(localProperties.getProperty("DEV_AUTO_LOGIN_PASSWORD", ""))
+            .get()
+        buildConfigField("Boolean", "DEV_AUTO_LOGIN", devAutoLogin.toBoolean().toString())
+        buildConfigField("String", "DEV_AUTO_LOGIN_EMAIL", "\"${devAutoLoginEmail.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "DEV_AUTO_LOGIN_PASSWORD", "\"${devAutoLoginPassword.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        val googleMapsApiKey = providers.gradleProperty("GOOGLE_MAPS_API_KEY")
+            .orElse(localProperties.getProperty("GOOGLE_MAPS_API_KEY", ""))
+            .get()
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey
+        buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
     }
 }
 
@@ -55,9 +83,11 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
 
-    // Mapbox
-    implementation("com.mapbox.maps:android-ndk27:11.29.0")
-    implementation("com.mapbox.extension:maps-compose:11.29.0")
+    // Google Maps
+    implementation("com.google.maps.android:maps-compose:6.4.1")
+
+    // Imagens remotas (Gift Cards, anúncios e perfis)
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
     // CameraX + leitura de QR/código de barras
     val cameraxVersion = "1.6.2"

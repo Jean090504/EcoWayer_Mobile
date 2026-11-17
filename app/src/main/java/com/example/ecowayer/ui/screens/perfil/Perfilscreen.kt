@@ -48,8 +48,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
+import com.example.ecowayer.ui.components.ImagemRemota
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
+import com.example.ecowayer.service.SessionStore
 
 /**
  * Modelo temporário. Quando a API estiver pronta, gere esta classe a partir do
@@ -88,14 +90,16 @@ fun PerfilScreen(
     //
     // Trate também carregando e erro (CircularProgressIndicator / "Tentar de novo").
     // ----------------------------------------------------------------------
-    val perfil = PerfilUsuario(                              // TODO API
-        nome = "Lucas Mendes",
-        verificado = true,
-        membroDesde = "mar/2024",
-        nota = "4.9",
-        totalEntregas = 48,
-        conquistas = 12,
-        anunciosPublicados = 3
+    val usuario = SessionStore.currentUser()
+    val perfil = PerfilUsuario(
+        nome = usuario?.nome ?: "Usuário EcoWayer",
+        verificado = usuario != null,
+        membroDesde = "",
+        nota = "—",
+        totalEntregas = 0,
+        conquistas = 0,
+        anunciosPublicados = 0,
+        fotoUrl = usuario?.foto
     )
 
     Scaffold(
@@ -256,22 +260,13 @@ fun PerfilScreen(
 @Composable
 private fun CabecalhoUsuario(perfil: PerfilUsuario) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        // FOTO DO USUÁRIO ---------------------------------------------------
-        // Quando a API devolver a URL (Coil: io.coil-kt:coil-compose):
-        //
-        // AsyncImage(
-        //     model = perfil.fotoUrl,
-        //     contentDescription = "Foto de perfil",
-        //     contentScale = ContentScale.Crop,
-        //     modifier = Modifier.size(72.dp).clip(CircleShape)
-        // )
-        Box(
+        ImagemRemota(
+            url = perfil.fotoUrl,
+            descricao = "Foto de perfil",
             modifier = Modifier
                 .size(72.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFE0E0E0))
         )
-        // -------------------------------------------------------------------
 
         Column(
             modifier = Modifier.padding(start = 16.dp),

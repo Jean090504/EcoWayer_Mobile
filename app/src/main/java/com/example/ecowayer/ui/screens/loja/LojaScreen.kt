@@ -26,10 +26,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ecowayer.model.AnuncioApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
+import com.example.ecowayer.ui.components.ImagemRemota
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
 
@@ -61,11 +66,24 @@ data class Anuncio(
     val imagemUrl: String? = null
 )
 
-val anunciosMock = listOf(            // TODO API
-    Anuncio(1, "Mesa semi nova...", "R$ 170,00", "4.9", "2.4 km", "Móveis"),
-    Anuncio(2, "Fardo de PET limpo - 25 kg", "R$ 64,00", "4.7", "1.1 km", "Fardos"),
-    Anuncio(3, "Papelão prensado - 50 kg", "R$ 45,00", "4.8", "4.0 km", "Papel")
-)
+private fun AnuncioApi.toUi(): Anuncio {
+    val modalidade = modalidade_nome ?: ""
+    val precoTexto = when {
+        modalidade.contains("doa", true) -> "Grátis"
+        modalidade.contains("troca", true) -> "Troca"
+        preco != null -> "R$ %.2f".format(java.util.Locale("pt", "BR"), preco)
+        else -> "Preço não informado"
+    }
+    return Anuncio(
+        id = id,
+        titulo = nome,
+        preco = precoTexto,
+        nota = "—",
+        distancia = "",
+        categoria = categoria_nome ?: categoria ?: "Material",
+        imagemUrl = imagem
+    )
+}
 
 private val categorias = listOf("Tudo", "Móveis", "Fardos", "Plástico", "Papel")
 
@@ -77,23 +95,9 @@ fun LojaScreen(
     onAbrirAnuncio: (Anuncio) -> Unit = {}
 ) {
     var categoriaSelecionada by remember { mutableStateOf("Tudo") }
-
-    // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
-    // Troque os dados abaixo por estados vindos de um LojaViewModel:
-    //
-    // val viewModel: LojaViewModel = viewModel()
-    // val anuncios by viewModel.anuncios.collectAsState()   // GET /anuncios
-    //
-    // LaunchedEffect(categoriaSelecionada) {
-    //     // GET /anuncios?categoria=Móveis&lat=...&lng=...   ("Tudo" = sem filtro)
-    //     viewModel.carregarAnuncios(categoriaSelecionada)
-    // }
-    //
-    // Se quiser, trate também: carregando (CircularProgressIndicator),
-    // erro (mensagem + botão "Tentar de novo") e lista vazia.
-    // ----------------------------------------------------------------------
-
-    val anuncios = anunciosMock.filter {
+    val viewModel: LojaViewModel = viewModel()
+    val estado by viewModel.estado.collectAsState()
+    val anuncios = estado.anuncios.map { it.toUi() }.filter {
         categoriaSelecionada == "Tudo" || it.categoria == categoriaSelecionada
     }
 
@@ -163,8 +167,17 @@ fun LojaScreen(
                 }
             }
 
-            // Anúncios (vindos da API)
-            items(anuncios) { anuncio ->
+            item {
+                if (estado.carregando) Text("Carregando anúncios...", color = Color.Gray)
+                estado.erro?.let { erro ->
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(erro, color = Color(0xFFB3261E))
+                        Text("Tentar novamente", color = EcoColors.Roxo, modifier = Modifier.clickable { viewModel.carregar() })
+                    }
+                }
+            }
+            // Anúncios reais da API
+            items(anuncios, key = { it.id }) { anuncio ->
                 CardAnuncio(anuncio, onClick = { onAbrirAnuncio(anuncio) })
             }
         }
@@ -211,11 +224,12 @@ private fun CardAnuncio(anuncio: Anuncio, onClick: () -> Unit) {
         //     contentScale = ContentScale.Crop,
         //     modifier = Modifier.size(86.dp).clip(RoundedCornerShape(12.dp))
         // )
-        Box(
+        ImagemRemota(
+            url = anuncio.imagemUrl,
+            descricao = anuncio.titulo,
             modifier = Modifier
                 .size(86.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFE0E0E0))
         )
         // -------------------------------------------------------------------
 

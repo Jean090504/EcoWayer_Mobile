@@ -22,6 +22,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ecowayer.model.ConversaApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,6 +53,15 @@ data class Conversa(
     val fotoUrl: String? = null
 )
 
+private fun ConversaApi.toUi() = Conversa(
+    id = id,
+    nome = nome_contato ?: contato?.nome ?: "Conversa #$id",
+    ultimaMensagem = ultima_mensagem.orEmpty().ifBlank { "Nenhuma mensagem ainda" },
+    tempo = data_ultima_mensagem.orEmpty(),
+    naoLidas = nao_lidas,
+    fotoUrl = contato?.foto
+)
+
 @Composable
 fun MensagensScreen(
     onBack: () -> Unit = {},
@@ -56,27 +69,9 @@ fun MensagensScreen(
     onQrCode: () -> Unit = {},
     onAbrirConversa: (Conversa) -> Unit = {}
 ) {
-    // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
-    // Troque o mock abaixo por um estado vindo do MensagensViewModel:
-    //
-    // val viewModel: MensagensViewModel = viewModel()
-    // val conversas by viewModel.conversas.collectAsState()   // GET /conversas
-    //
-    // LaunchedEffect(Unit) { viewModel.carregar() }
-    //
-    // Mensagens novas em tempo real: WebSocket (ou polling a cada X segundos)
-    // atualizando a lista e o contador de não lidas.
-    //
-    // Trate também carregando e erro (CircularProgressIndicator / "Tentar de novo").
-    // ----------------------------------------------------------------------
-    val conversas = listOf(                                              // TODO API
-        Conversa(1, "Carlos Silva", "How are you today?", "há 2 min", naoLidas = 3),
-        Conversa(2, "Fernando Pessoa", "hi,  Lucas Mendes", "há 3 min", naoLidas = 3),
-        Conversa(3, "Amanda Vieira", "good morning!", "há 3 min"),
-        Conversa(4, "Tiler Bonde", "Heyyyy!", "há 3 min"),
-        Conversa(5, "Pamella santos", "Can we meet tomorrow?", "há 3 min"),
-        Conversa(6, "Jhonas Pereira", "hello Lucas", "há 4 min")
-    )
+    val viewModel: MensagensViewModel = viewModel()
+    val estado by viewModel.estado.collectAsState()
+    val conversas = estado.conversas.map { it.toUi() }
 
     Scaffold(
         containerColor = Color.White,
@@ -117,7 +112,11 @@ fun MensagensScreen(
                 )
             }
 
-            if (conversas.isEmpty()) {
+            if (estado.carregando) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Carregando conversas...", color = Color.Gray) }
+            } else if (estado.erro != null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(estado.erro!!, color = Color(0xFFB3261E)) }
+            } else if (conversas.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         "Você ainda não tem conversas.",

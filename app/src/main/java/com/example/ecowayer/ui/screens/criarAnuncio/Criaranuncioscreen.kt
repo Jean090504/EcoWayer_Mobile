@@ -39,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -71,6 +72,8 @@ import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
+import com.example.ecowayer.service.RetrofitFactory
+import com.example.ecowayer.model.AnuncioOpcoes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -84,7 +87,9 @@ data class NovoAnuncio(
     val modalidade: Modalidade,
     val valor: String,          // ex.: "15,60" (vazio quando Doação/Troca)
     val condicao: String,
-    val descricao: String
+    val descricao: String,
+    val quantidade: String = "1",
+    val unidade: String = "un"
 )
 
 enum class Modalidade(val rotulo: String) { Doacao("Doação"), Troca("Troca"), Venda("Venda") }
@@ -100,15 +105,29 @@ fun CriarAnuncioScreen(
     onBack: () -> Unit = {},
     onNavegar: (DestinoBarra) -> Unit = {},
     onQrCode: () -> Unit = {},
-    onPublicar: (NovoAnuncio) -> Unit = {}
+    onPublicar: (NovoAnuncio) -> Unit = {},
+    publicando: Boolean = false,
+    erro: String? = null
 ) {
     val imagens = remember { mutableStateListOf<Uri>() }
     var titulo by remember { mutableStateOf("") }
-    var categoria by remember { mutableStateOf(listaCategorias.first()) }
+    var categoria by remember { mutableStateOf("") }
     var modalidade by remember { mutableStateOf(Modalidade.Venda) }
     var valor by remember { mutableStateOf("") }
-    var condicao by remember { mutableStateOf(listaCondicoes[1]) }
+    var condicao by remember { mutableStateOf("") }
     var descricao by remember { mutableStateOf("") }
+    var quantidade by remember { mutableStateOf("1") }
+    var unidade by remember { mutableStateOf("un") }
+
+    val opcoes by produceState<AnuncioOpcoes?>(initialValue = null) {
+        value = runCatching { RetrofitFactory.getEcoWayerApi().opcoesAnuncio().body()?.response }.getOrNull()
+    }
+    val categoriasDisponiveis = opcoes?.categorias?.map { it.nome }?.filter(String::isNotBlank).orEmpty().ifEmpty { listaCategorias }
+    val condicoesDisponiveis = opcoes?.condicoes?.map { it.nome }?.filter(String::isNotBlank).orEmpty().ifEmpty { listaCondicoes }
+    LaunchedEffect(opcoes) {
+        if (categoria.isBlank()) categoria = categoriasDisponiveis.firstOrNull().orEmpty()
+        if (condicao.isBlank()) condicao = condicoesDisponiveis.firstOrNull().orEmpty()
+    }
 
     val seletorImagens = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(maxItems = 5)
@@ -223,7 +242,7 @@ fun CriarAnuncioScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SecaoCard(modifier = Modifier.weight(1f)) {
                         RotuloCampo("Categoria")
-                        Dropdown(categoria, listaCategorias) { categoria = it }
+                        Dropdown(categoria.ifBlank { "Selecione" }, categoriasDisponiveis) { categoria = it }
                     }
                     SecaoCard(modifier = Modifier.weight(1f)) {
                         RotuloCampo("Modalidade")
@@ -249,7 +268,19 @@ fun CriarAnuncioScreen(
                     }
                     SecaoCard(modifier = Modifier.weight(1f)) {
                         RotuloCampo("Condição do material")
-                        Dropdown(condicao, listaCondicoes) { condicao = it }
+                        Dropdown(condicao.ifBlank { "Selecione" }, condicoesDisponiveis) { condicao = it }
+                    }
+                }
+
+                // Descrição
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SecaoCard(modifier = Modifier.weight(1f)) {
+                        RotuloCampo("Quantidade")
+                        CampoArredondado(quantidade, { if (it.all(Char::isDigit)) quantidade = it }, "1", teclado = KeyboardType.Number, centralizado = true)
+                    }
+                    SecaoCard(modifier = Modifier.weight(1f)) {
+                        RotuloCampo("Unidade")
+                        Dropdown(unidade, listOf("un", "kg", "t", "l")) { unidade = it }
                     }
                 }
 
@@ -289,8 +320,9 @@ fun CriarAnuncioScreen(
                 }
 
                 // Botão publicar
-                val formularioValido = titulo.isNotBlank() &&
+                val formularioValido = titulo.isNotBlank() && categoria.isNotBlank() && condicao.isNotBlank() && imagens.isNotEmpty() &&
                         (!valorHabilitado || valor.isNotBlank())
+                erro?.let { Text(it, color = Color(0xFFB3261E), fontSize = 13.sp) }
                 Row(
                     modifier = Modifier
                         .padding(top = 4.dp, bottom = 8.dp)
@@ -299,7 +331,7 @@ fun CriarAnuncioScreen(
                         .height(52.dp)
                         .clip(RoundedCornerShape(26.dp))
                         .background(if (formularioValido) EcoColors.Roxo else EcoColors.Roxo.copy(alpha = 0.4f))
-                        .clickable(enabled = formularioValido) {
+                        .clickable(enabled = formularioValido && !publicando) {
                             // --- INTEGRAÇÃO BACK-END (futuro) ---------------------------
                             // viewModel.publicar(...)  // POST /anuncios (multipart com imagens)
                             // -------------------------------------------------------------
@@ -307,7 +339,7 @@ fun CriarAnuncioScreen(
                                 NovoAnuncio(
                                     imagens.toList(), titulo.trim(), categoria,
                                     modalidade, if (valorHabilitado) valor else "",
-                                    condicao, descricao.trim()
+                                    condicao, descricao.trim(), quantidade, unidade
                                 )
                             )
                         },
@@ -316,7 +348,7 @@ fun CriarAnuncioScreen(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White, modifier = Modifier.size(22.dp))
                     Spacer(Modifier.width(10.dp))
-                    Text("Publicar Anúncio", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(if (publicando) "Publicando..." else "Publicar Anúncio", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

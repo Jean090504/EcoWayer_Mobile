@@ -1,6 +1,7 @@
 package com.example.ecowayer.ui.screens.ecopontos
 
 import android.Manifest
+import android.location.Geocoder
 import android.content.ActivityNotFoundException
 import android.widget.Toast
 import android.content.Context
@@ -27,7 +28,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Tune
@@ -40,73 +44,63 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.ecowayer.R
+import com.example.ecowayer.model.Coordenada
+import com.example.ecowayer.model.BuscaLocaisRequest
+import com.example.ecowayer.model.EnderecoPonto
+import com.example.ecowayer.model.LocalReciclagem
 import com.example.ecowayer.model.PontoColeta
+import com.example.ecowayer.model.RotaCalculada
+import com.example.ecowayer.model.RotaRequest
+import com.example.ecowayer.service.RetrofitFactory
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.components.FiltrosState
 import com.example.ecowayer.ui.ecopontos.EcoPontosViewModel
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
-import com.example.ecowayer.service.RotasRepository
-import com.mapbox.common.MapboxOptions
-import kotlinx.coroutines.CancellationException
-import retrofit2.HttpException
-import java.io.IOException
-import com.mapbox.maps.extension.compose.annotation.generated.PolylineAnnotation
-import com.mapbox.geojson.Point
-import com.mapbox.maps.CameraOptions
-import com.mapbox.maps.Style
-import com.mapbox.maps.extension.compose.MapEffect
-import com.mapbox.maps.extension.compose.MapboxMap
-import com.mapbox.maps.extension.compose.MapboxMapComposable
-import com.mapbox.maps.extension.compose.animation.viewport.MapViewportState
-import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
-import com.mapbox.maps.extension.compose.annotation.generated.PointAnnotation
-import com.mapbox.maps.extension.compose.annotation.rememberIconImage
-import com.mapbox.maps.extension.compose.style.GenericStyle
-import com.mapbox.maps.plugin.gestures.gestures
-import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
-import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
-import com.mapbox.maps.plugin.locationcomponent.location
-import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateBearing
-import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.location.LocationServices
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapEffect
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.CameraPositionState
+import com.google.maps.android.compose.rememberCameraPositionState
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.Locale
 
-// Centro de Barueri-SP (Mapbox usa lng, lat). Usado como posição inicial da câmera
+// Centro de Barueri-SP. Usado como posição inicial da câmera
 // e como origem da distância enquanto o GPS ainda não respondeu.
 private const val LAT_PADRAO = -23.5111
 private const val LNG_PADRAO = -46.8763
 private const val ZOOM_INICIAL = 14.5
 private val ALTURA_CARD_PONTO = 170.dp
-
-// Escala dos marcadores no mapa (1.0 = tamanho original da imagem).
-// Marcadores menores para reduzir a sobreposição no mapa.
-private const val ESCALA_ICONE_PONTO = 0.08
-
-// Câmera que segue o usuário SEM inclinação (sem 3D) e com o norte sempre para cima
-private val OPCOES_SEGUIR_USUARIO = FollowPuckViewportStateOptions.Builder()
-    .pitch(0.0)
-    .bearing(FollowPuckViewportStateBearing.Constant(0.0))
-    .zoom(ZOOM_INICIAL)
-    .build()
 
 // ---------------------------------------------------------------------------
 // TELA
@@ -114,75 +108,136 @@ private val OPCOES_SEGUIR_USUARIO = FollowPuckViewportStateOptions.Builder()
 
 @Composable
 fun EcoPontosScreen(
+    onVoltar: () -> Unit = {},
     onNavegar: (DestinoBarra) -> Unit = {},
     onQrCode: () -> Unit = {},
     onSelecionarPonto: (PontoColeta) -> Unit = {},
     viewModel: EcoPontosViewModel = viewModel()
 ) {
     val contexto = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val localizacaoClient = remember(contexto) {
+        LocationServices.getFusedLocationProviderClient(contexto)
+    }
 
     // Estado da UI
     var busca by remember { mutableStateOf("") }
     var filtros by remember { mutableStateOf(FiltrosState()) }
     var mostrarFiltros by remember { mutableStateOf(false) }
     var selecionado by remember { mutableStateOf<PontoColeta?>(null) }
-    var posicaoUsuario by remember { mutableStateOf<Point?>(null) }
-
-    val rotasRepository = remember { RotasRepository() }
-    var tentativaRota by remember { mutableStateOf(0) }
-    var origemRota by remember { mutableStateOf<Point?>(null) }
-    var destinoRota by remember { mutableStateOf<PontoColeta?>(null) }
-    var rota by remember { mutableStateOf<List<Point>>(emptyList()) }
+    var posicaoUsuario by remember { mutableStateOf<LatLng?>(null) }
+    var rota by remember { mutableStateOf<List<LatLng>>(emptyList()) }
+    var resumoRota by remember { mutableStateOf<RotaCalculada?>(null) }
     var carregandoRota by remember { mutableStateOf(false) }
     var erroRota by remember { mutableStateOf<String?>(null) }
+    var erroBusca by remember { mutableStateOf<String?>(null) }
+    var locaisReciclagem by remember { mutableStateOf<List<LocalReciclagem>>(emptyList()) }
+    var carregandoLocais by remember { mutableStateOf(false) }
+    var erroLocais by remember { mutableStateOf<String?>(null) }
 
-    // Cancelada automaticamente se fechar o card ou selecionar outro destino.
-    LaunchedEffect(destinoRota, origemRota, tentativaRota) {
-        rota = emptyList()
-        erroRota = null
-        carregandoRota = false
-        val destino = destinoRota ?: return@LaunchedEffect
-        val origem = origemRota ?: return@LaunchedEffect
-        carregandoRota = true
-        try {
-            rota = rotasRepository.buscar(
-                origem, Point.fromLngLat(destino.longitude, destino.latitude),
-                MapboxOptions.accessToken
-            )
-        } catch (cancelamento: CancellationException) {
-            throw cancelamento
-        } catch (erro: HttpException) {
-            erroRota = if (erro.code() == 401 || erro.code() == 403)
-                "O token do Mapbox não autorizou a consulta de rotas."
-            else "Não foi possível consultar a rota. Tente novamente."
-        } catch (erro: IOException) {
-            erroRota = "Não foi possível conectar. Verifique sua internet e tente novamente."
-        } catch (erro: Exception) {
-            erroRota = "Não foi possível encontrar uma rota. Verifique a configuração do Mapbox e tente novamente."
-        } finally {
-            carregandoRota = false
-        }
-    }
 
     // Dados da API (GET /meraki/ecowayer/user/ponto_coleta)
     val todosPontos by viewModel.pontos.collectAsState()
     val erro by viewModel.erro.collectAsState()
-    val pontos = remember(todosPontos, busca, filtros) {
-        todosPontos.filter {
-            it.coincideComBusca(busca) &&
-                    it.aceita(filtros.materiais.map { m -> m.valorApi })   // ajuste ao seu FiltrosState
+    val mapViewportState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(LatLng(LAT_PADRAO, LNG_PADRAO), ZOOM_INICIAL.toFloat())
+    }
+    var cameraCentralizadaNaLocalizacao by remember { mutableStateOf(false) }
+
+    fun buscarLocaisReciclagem(centro: LatLng) {
+        scope.launch {
+            carregandoLocais = true
+            erroLocais = null
+            try {
+                val resposta = RetrofitFactory.getEcoWayerApi()
+                    .buscarLocaisReciclagem(BuscaLocaisRequest(centro.latitude, centro.longitude))
+                if (!resposta.isSuccessful || resposta.body()?.status != true) {
+                    error(resposta.body()?.message ?: "Não foi possível buscar locais próximos.")
+                }
+                val dados = resposta.body()?.response
+                    ?: error("A API não retornou os locais próximos.")
+                locaisReciclagem = dados.locais
+            } catch (erro: Exception) {
+                erroLocais = erro.message ?: "Não foi possível buscar locais próximos."
+            } finally {
+                carregandoLocais = false
+            }
+        }
+    }
+    val pontos = remember(todosPontos, busca, filtros, posicaoUsuario) {
+        val ativos = todosPontos.filter { it.status.equals("ativo", ignoreCase = true) }
+        val correspondentes = ativos.filter { it.coincideComBusca(busca) }
+        val base = if (busca.isBlank() || correspondentes.isNotEmpty()) correspondentes else ativos
+        base.filter {
+            it.aceita(filtros.materiais.map { m -> m.valorApi })
+        }.sortedBy {
+            val origem = posicaoUsuario ?: LatLng(LAT_PADRAO, LNG_PADRAO)
+            distanciaMetros(origem.latitude, origem.longitude, it.latitude, it.longitude)
+        }
+    }
+
+    fun pesquisarLocalizacao(consulta: String) {
+        val termo = consulta.trim()
+        if (termo.length < 2) return
+        scope.launch {
+            erroBusca = null
+            try {
+                val resposta = RetrofitFactory.getEcoWayerApi()
+                    .geocodificar(com.example.ecowayer.model.GeocodificarRequest(termo))
+                val localizacao = resposta.body()?.response
+                if (resposta.isSuccessful && resposta.body()?.status == true && localizacao != null) {
+                    mapViewportState.position = CameraPosition.fromLatLngZoom(
+                        LatLng(localizacao.latitude, localizacao.longitude),
+                        12.5f
+                    )
+                    buscarLocaisReciclagem(LatLng(localizacao.latitude, localizacao.longitude))
+                    return@launch
+                }
+
+                val resultadoLocal = withContext(Dispatchers.IO) {
+                    @Suppress("DEPRECATION")
+                    Geocoder(contexto, Locale("pt", "BR"))
+                        .getFromLocationName("$termo, Brasil", 1)
+                        ?.firstOrNull()
+                }
+                if (resultadoLocal == null) {
+                    error(resposta.body()?.message ?: "Cidade ou endereço não encontrado.")
+                }
+                mapViewportState.position = CameraPosition.fromLatLngZoom(
+                    LatLng(resultadoLocal.latitude, resultadoLocal.longitude),
+                    12.5f
+                )
+                buscarLocaisReciclagem(LatLng(resultadoLocal.latitude, resultadoLocal.longitude))
+            } catch (erro: Exception) {
+                erroBusca = erro.message ?: "Não foi possível pesquisar essa localização."
+            }
+        }
+    }
+
+    LaunchedEffect(busca) {
+        val termo = busca.trim()
+        if (termo.length >= 3 && todosPontos.none { it.coincideComBusca(termo) }) {
+            delay(650)
+            pesquisarLocalizacao(termo)
         }
     }
 
     // Permissão de localização
     val (temPermissao, pedirPermissao) = rememberPermissaoLocalizacao()
 
-    val mapViewportState = rememberMapViewportState {
-        setCameraOptions {
-            center(Point.fromLngLat(LNG_PADRAO, LAT_PADRAO))
-            zoom(ZOOM_INICIAL)
-            pitch(0.0)
-            bearing(0.0)
+    LaunchedEffect(temPermissao) {
+        if (temPermissao) {
+            localizacaoClient.lastLocation.addOnSuccessListener { localizacao ->
+                if (localizacao != null) {
+                    val ponto = LatLng(localizacao.latitude, localizacao.longitude)
+                    posicaoUsuario = ponto
+                    if (!cameraCentralizadaNaLocalizacao) {
+                        mapViewportState.position = CameraPosition.fromLatLngZoom(ponto, ZOOM_INICIAL.toFloat())
+                        cameraCentralizadaNaLocalizacao = true
+                        buscarLocaisReciclagem(ponto)
+                    }
+                }
+            }
         }
     }
 
@@ -203,13 +258,31 @@ fun EcoPontosScreen(
                 .statusBarsPadding()
                 .padding(horizontal = 16.dp)
         ) {
-            TituloEcoPontos()
+            TituloEcoPontos(onVoltar)
 
             CampoBusca(
                 valor = busca,
                 onValorChange = { busca = it },
-                onAbrirFiltros = { mostrarFiltros = true }
+                onAbrirFiltros = { mostrarFiltros = true },
+                onBuscar = { pesquisarLocalizacao(busca) }
             )
+
+            erroBusca?.let {
+                Text(it, fontSize = 12.sp, color = Color(0xFFB00020))
+            }
+
+            if (carregandoLocais) {
+                Text(
+                    "Buscando reciclagem, descarte e ferro-velho próximos...",
+                    fontSize = 12.sp,
+                    color = EcoColors.TextoPrimario,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
+            erroLocais?.let {
+                Text(it, fontSize = 12.sp, color = Color(0xFFB00020))
+            }
 
             erro?.let {
                 Text(
@@ -224,51 +297,65 @@ fun EcoPontosScreen(
 
             MapaEcoPontos(
                 pontos = pontos,
+                locaisReciclagem = locaisReciclagem,
                 selecionado = selecionado,
                 posicaoUsuario = posicaoUsuario,
                 temPermissao = temPermissao,
                 mapViewportState = mapViewportState,
                 onPosicaoUsuario = { posicaoUsuario = it },
                 onSelecionar = {
-                    destinoRota = null
                     rota = emptyList()
+                    resumoRota = null
                     erroRota = null
                     selecionado = it
                     onSelecionarPonto(it)
+                    val pontoSelecionado = it
+                    val origem = posicaoUsuario
+                    if (origem == null) {
+                        erroRota = "Aguardando sua localização para calcular a rota."
+                    } else {
+                        scope.launch {
+                            carregandoRota = true
+                            try {
+                                val resposta = RetrofitFactory.getEcoWayerApi().calcularRota(
+                                    RotaRequest(
+                                        origem = Coordenada(origem.latitude, origem.longitude),
+                                        destino = Coordenada(pontoSelecionado.latitude, pontoSelecionado.longitude)
+                                    )
+                                )
+                                val dados = resposta.body()?.response
+                                if (!resposta.isSuccessful || resposta.body()?.status != true || dados == null) {
+                                    error(resposta.body()?.message ?: "Não foi possível calcular a rota.")
+                                }
+                                resumoRota = dados
+                                rota = decodificarPolyline(dados.polyline)
+                            } catch (erro: Exception) {
+                                erroRota = erro.message ?: "Não foi possível calcular a rota."
+                            } finally {
+                                carregandoRota = false
+                            }
+                        }
+                    }
                 },
                 onFecharCard = {
                     selecionado = null
-                    destinoRota = null
                     rota = emptyList()
+                    resumoRota = null
                     erroRota = null
                 },
                 onRecentralizar = {
                     if (temPermissao) {
-                        mapViewportState.transitionToFollowPuckState(OPCOES_SEGUIR_USUARIO)
+                        val centro = posicaoUsuario ?: LatLng(LAT_PADRAO, LNG_PADRAO)
+                        mapViewportState.position = CameraPosition.fromLatLngZoom(centro, ZOOM_INICIAL.toFloat())
                     } else {
                         pedirPermissao()
                     }
                 },
                 rota = rota,
+                resumoRota = resumoRota,
                 carregandoRota = carregandoRota,
                 erroRota = erroRota,
                 onSeguirGoogleMaps = { abrirRotaNoMaps(contexto, it) },
-                onTracarRota = { ponto ->
-                    val origem = posicaoUsuario
-                    when {
-                        !temPermissao -> {
-                            pedirPermissao()
-                            erroRota = "Permita a localização para traçar a rota."
-                        }
-                        origem == null -> erroRota = "Aguardando sua localização. Tente novamente em instantes."
-                        else -> {
-                            origemRota = origem
-                            destinoRota = ponto
-                            tentativaRota++
-                            erroRota = null
-                        }
-                    }
-                },
                 modifier = Modifier
                     .padding(vertical = 12.dp)
                     .weight(1f)
@@ -282,8 +369,8 @@ fun EcoPontosScreen(
                 onAplicar = { novos ->
                     filtros = novos
                     selecionado = null
-                    destinoRota = null
                     rota = emptyList()
+                    resumoRota = null
                     erroRota = null
                 }
             )
@@ -339,86 +426,89 @@ private fun abrirRotaNoMaps(contexto: Context, ponto: PontoColeta) {
 @Composable
 private fun MapaEcoPontos(
     pontos: List<PontoColeta>,
+    locaisReciclagem: List<LocalReciclagem>,
     selecionado: PontoColeta?,
-    posicaoUsuario: Point?,
+    posicaoUsuario: LatLng?,
     temPermissao: Boolean,
-    mapViewportState: MapViewportState,
-    onPosicaoUsuario: (Point) -> Unit,
+    mapViewportState: CameraPositionState,
+    onPosicaoUsuario: (LatLng) -> Unit,
     onSelecionar: (PontoColeta) -> Unit,
     onFecharCard: () -> Unit,
     onRecentralizar: () -> Unit,
-    onTracarRota: (PontoColeta) -> Unit,
-    rota: List<Point>,
+    rota: List<LatLng>,
+    resumoRota: RotaCalculada?,
     carregandoRota: Boolean,
     erroRota: String?,
     onSeguirGoogleMaps: (PontoColeta) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Listener único: evita adicionar um novo a cada vez que o MapEffect roda
-    val onPosicaoAtual by rememberUpdatedState(onPosicaoUsuario)
-    val listenerPosicao = remember {
-        OnIndicatorPositionChangedListener { onPosicaoAtual(it) }
-    }
-
     Box(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .background(Color.White)
     ) {
-        MapboxMap(
+        GoogleMap(
             modifier = Modifier.fillMaxSize(),
-            mapViewportState = mapViewportState,
-            style = { GenericStyle(style = Style.LIGHT) },   // mapa claro (veja nota sobre estilo branco)
-            logo = {},
-            scaleBar = {}
+            cameraPositionState = mapViewportState,
+            properties = MapProperties(isMyLocationEnabled = temPermissao),
+            uiSettings = MapUiSettings(
+                zoomControlsEnabled = false,
+                mapToolbarEnabled = false,
+                myLocationButtonEnabled = false
+            )
         ) {
-            // Configuração 2D: sem inclinação, sem rotação, sem prédios em 3D
-            MapEffect(Unit) { mapView ->
-                mapView.gestures.pitchEnabled = false
-                mapView.gestures.rotateEnabled = false
-
-                mapView.mapboxMap.getStyle { style ->
-                    listOf("building-extrusion", "3d-buildings").forEach { id ->
-                        if (style.styleLayerExists(id)) style.removeStyleLayer(id)
+            MapEffect(temPermissao) { googleMap ->
+                googleMap.setOnMyLocationChangeListener { location ->
+                    if (location != null) {
+                        onPosicaoUsuario(LatLng(location.latitude, location.longitude))
                     }
-                }
-            }
-
-            // Bolinha azul do usuário. A câmera NÃO segue o usuário automaticamente:
-            // ela fica no centro de Barueri até o usuário tocar no botão de localização.
-            MapEffect(temPermissao) { mapView ->
-                if (temPermissao) {
-                    mapView.location.updateSettings {
-                        enabled = true
-                        pulsingEnabled = true
-                        locationPuck = createDefault2DPuck(withBearing = false)  // bolinha 2D
-                    }
-                    mapView.location.removeOnIndicatorPositionChangedListener(listenerPosicao)
-                    mapView.location.addOnIndicatorPositionChangedListener(listenerPosicao)
                 }
             }
 
             if (rota.size >= 2) {
-                PolylineAnnotation(points = rota) {
-                    lineColor = EcoColors.Verde
-                    lineWidth = 5.0
-                }
+                Polyline(points = rota, color = EcoColors.Verde, width = 5f)
             }
 
-            MarcadoresEcoPontos(
-                pontos = pontos,
-                onClick = { ponto ->
-                    onSelecionar(ponto)
-                    mapViewportState.easeTo(
-                        CameraOptions.Builder()
-                            .center(Point.fromLngLat(ponto.longitude, ponto.latitude))
-                            .pitch(0.0)
-                            .bearing(0.0)
-                            .build()
-                    )
-                }
-            )
+            pontos.forEach { ponto ->
+                val position = LatLng(ponto.latitude, ponto.longitude)
+                Marker(
+                    state = MarkerState(position = position),
+                    title = ponto.nome,
+                    snippet = ponto.enderecoCurto(),
+                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN),
+                    onClick = {
+                        onSelecionar(ponto)
+                        mapViewportState.position = CameraPosition.fromLatLngZoom(position, ZOOM_INICIAL.toFloat())
+                        true
+                    }
+                )
+            }
+
+            locaisReciclagem.forEach { local ->
+                val position = LatLng(local.latitude, local.longitude)
+                Marker(
+                    state = MarkerState(position = position),
+                    title = local.nome,
+                    snippet = local.endereco,
+                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_VIOLET),
+                    onClick = {
+                        onSelecionar(
+                            PontoColeta(
+                                id = local.id.hashCode(),
+                                nome = local.nome,
+                                descricao = "Local encontrado pelo Google Places",
+                                status = "ativo",
+                                latitude = local.latitude,
+                                longitude = local.longitude,
+                                endereco = listOf(EnderecoPonto(rua = local.endereco))
+                            )
+                        )
+                        mapViewportState.position = CameraPosition.fromLatLngZoom(position, ZOOM_INICIAL.toFloat())
+                        true
+                    }
+                )
+            }
         }
 
         BotaoMinhaLocalizacao(
@@ -429,8 +519,8 @@ private fun MapaEcoPontos(
         selecionado?.let { ponto ->
             val origem = posicaoUsuario
             val distancia = distanciaMetros(
-                origem?.latitude() ?: LAT_PADRAO,
-                origem?.longitude() ?: LNG_PADRAO,
+                origem?.latitude ?: LAT_PADRAO,
+                origem?.longitude ?: LNG_PADRAO,
                 ponto.latitude,
                 ponto.longitude
             ).formatarDistancia()
@@ -439,48 +529,12 @@ private fun MapaEcoPontos(
                 ponto = ponto,
                 distancia = distancia,
                 onFechar = onFecharCard,
-                onTracarRota = { onTracarRota(ponto) },
-                rotaPronta = rota.size >= 2,
+                resumoRota = resumoRota,
                 carregandoRota = carregandoRota,
                 erroRota = erroRota,
                 onSeguirGoogleMaps = { onSeguirGoogleMaps(ponto) },
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
-        }
-    }
-}
-
-@Composable
-@MapboxMapComposable
-private fun MarcadoresEcoPontos(
-    pontos: List<PontoColeta>,
-    onClick: (PontoColeta) -> Unit
-) {
-    // Drawables em res/drawable: marcador_verde, marcador_azul, marcador_laranja, marcador_cinza
-    val verde = rememberIconImage("marcador_verde", painterResource(R.drawable.marcador_verde))
-    val azul = rememberIconImage("marcador_azul", painterResource(R.drawable.marcador_azul))
-    val laranja = rememberIconImage("marcador_laranja", painterResource(R.drawable.marcador_laranja))
-    val cinza = rememberIconImage("marcador_cinza", painterResource(R.drawable.marcador_cinza))
-
-    pontos.forEach { ponto ->
-        // A API devolve só id_categoria, então a cor vem do primeiro material aceito.
-        // Ponto inativo fica cinza.
-        val icone = when {
-            ponto.status != "ativo" -> cinza
-            else -> when (ponto.materiais.firstOrNull()?.nome) {
-                "Plástico" -> verde
-                "Vidro" -> azul
-                "Papel" -> laranja
-                else -> cinza   // Metal, Eletrônicos, Óleo de Cozinha...
-            }
-        }
-        PointAnnotation(point = Point.fromLngLat(ponto.longitude, ponto.latitude)) {
-            iconImage = icone
-            iconSize = ESCALA_ICONE_PONTO   // reduz a imagem original para o tamanho de um marcador
-            interactionsState.onClicked {
-                onClick(ponto)
-                true
-            }
         }
     }
 }
@@ -515,16 +569,29 @@ private fun BoxScope.BotaoMinhaLocalizacao(onClick: () -> Unit, elevado: Boolean
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun TituloEcoPontos() {
-    Text(
-        text = buildAnnotatedString {
-            withStyle(SpanStyle(color = EcoColors.Verde)) { append("Eco") }
-            withStyle(SpanStyle(color = EcoColors.Roxo)) { append("Pontos") }
-        },
-        fontSize = 26.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
-    )
+private fun TituloEcoPontos(onVoltar: () -> Unit) {
+    Row(
+        modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+            contentDescription = "Voltar para o início",
+            modifier = Modifier
+                .size(30.dp)
+                .clickable { onVoltar() },
+            tint = EcoColors.TextoPrimario
+        )
+        Text(
+            text = buildAnnotatedString {
+                withStyle(SpanStyle(color = EcoColors.Verde)) { append("Eco") }
+                withStyle(SpanStyle(color = EcoColors.Roxo)) { append("Pontos") }
+            },
+            fontSize = 26.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 8.dp)
+        )
+    }
 }
 
 @Composable
@@ -532,8 +599,7 @@ private fun CardPontoSelecionado(
     ponto: PontoColeta,
     distancia: String,
     onFechar: () -> Unit,
-    onTracarRota: () -> Unit,
-    rotaPronta: Boolean,
+    resumoRota: RotaCalculada?,
     carregandoRota: Boolean,
     erroRota: String?,
     onSeguirGoogleMaps: () -> Unit,
@@ -576,27 +642,68 @@ private fun CardPontoSelecionado(
                 modifier = Modifier.padding(bottom = 8.dp))
         }
 
+        when {
+            carregandoRota -> Text(
+                "Calculando rota...",
+                color = Color(0xFF666666),
+                fontSize = 12.sp,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            resumoRota != null -> Text(
+                "Rota: ${resumoRota.distancia_texto} • ${resumoRota.duracao_texto}",
+                color = EcoColors.TextoPrimario,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(44.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(EcoColors.Verde)
-                .clickable(enabled = !carregandoRota) {
-                    if (rotaPronta) onSeguirGoogleMaps() else onTracarRota()
-                },
+                .clickable(enabled = !carregandoRota) { onSeguirGoogleMaps() },
             contentAlignment = Alignment.Center
         ) {
             Text(
-                when {
-                    carregandoRota -> "Traçando rota..."
-                    rotaPronta -> "Seguir com Google Maps"
-                    else -> "Traçar rota"
-                },
+                if (resumoRota == null) "Abrir rota no Google Maps" else "Iniciar navegação",
                 color = Color.White, fontWeight = FontWeight.Bold
             )
         }
     }
+}
+
+private fun decodificarPolyline(encoded: String): List<LatLng> {
+    if (encoded.isBlank()) return emptyList()
+    val resultado = mutableListOf<LatLng>()
+    var indice = 0
+    var latitude = 0
+    var longitude = 0
+
+    while (indice < encoded.length) {
+        var deslocamento = 0
+        var valorLatitude = 0
+        var caractere: Int
+        do {
+            caractere = encoded[indice++].code - 63
+            valorLatitude = valorLatitude or ((caractere and 0x1f) shl deslocamento)
+            deslocamento += 5
+        } while (caractere >= 0x20 && indice < encoded.length)
+        latitude += if ((valorLatitude and 1) != 0) (valorLatitude shr 1).inv() else valorLatitude shr 1
+
+        deslocamento = 0
+        var valorLongitude = 0
+        do {
+            caractere = encoded[indice++].code - 63
+            valorLongitude = valorLongitude or ((caractere and 0x1f) shl deslocamento)
+            deslocamento += 5
+        } while (caractere >= 0x20 && indice < encoded.length)
+        longitude += if ((valorLongitude and 1) != 0) (valorLongitude shr 1).inv() else valorLongitude shr 1
+        resultado += LatLng(latitude / 1e5, longitude / 1e5)
+    }
+    return resultado
 }
 
 @Composable
@@ -616,7 +723,8 @@ private fun ChipMaterial(texto: String) {
 private fun CampoBusca(
     valor: String,
     onValorChange: (String) -> Unit,
-    onAbrirFiltros: () -> Unit
+    onAbrirFiltros: () -> Unit,
+    onBuscar: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -633,6 +741,8 @@ private fun CampoBusca(
             value = valor,
             onValueChange = onValorChange,
             singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onBuscar() }),
             textStyle = TextStyle(fontSize = 14.sp, color = EcoColors.TextoPrimario),
             modifier = Modifier
                 .weight(1f)

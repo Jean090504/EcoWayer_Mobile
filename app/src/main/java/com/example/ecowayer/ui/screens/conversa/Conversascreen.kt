@@ -32,8 +32,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,6 +47,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ecowayer.model.MensagemApi
+import com.example.ecowayer.service.SessionStore
 import com.example.ecowayer.ui.components.QrCodeDialog
 import com.example.ecowayer.ui.components.VoucherQr
 import com.example.ecowayer.ui.theme.EcoColors
@@ -66,6 +69,13 @@ data class Mensagem(
     val minha: Boolean       // true = enviada por mim, false = recebida
 )
 
+private fun MensagemApi.toUi() = Mensagem(
+    id = id,
+    texto = texto,
+    hora = criado_em.orEmpty().replace('T', ' ').takeLast(8).take(5),
+    minha = id_remetente == SessionStore.currentUser()?.id
+)
+
 private val FundoTela = Color(0xFFFAFAFA)
 private val BolhaRecebida = Color(0xFFF1F5F9)
 
@@ -74,34 +84,13 @@ fun ConversaScreen(
     conversaId: Int = 0,
     onBack: () -> Unit = {}
 ) {
-    // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
-    // Troque os dados abaixo por estados vindos de um ConversaViewModel:
-    //
-    // val viewModel: ConversaViewModel = viewModel()
-    // val contato by viewModel.contato.collectAsState()       // GET /conversas/{id}
-    // val mensagens by viewModel.mensagens.collectAsState()   // GET /conversas/{id}/mensagens
-    //
-    // LaunchedEffect(conversaId) {
-    //     viewModel.carregar(conversaId)
-    //     viewModel.marcarComoLida(conversaId)    // PATCH /conversas/{id}/lida
-    // }
-    //
-    // Mensagens novas em tempo real: WebSocket (ou polling) atualizando a lista.
-    // Agrupe por dia ("Hoje", "Ontem", data) para mostrar o rótulo no topo de cada dia.
-    // ----------------------------------------------------------------------
-    val nomeContato = "Fernando Pessoa"        // TODO API
-    val statusContato = "Online agora"         // TODO API (online / visto por último)
-    val contatoOnline = true                   // TODO API
-    val mensagens = remember {                 // TODO API
-        mutableStateListOf(
-            Mensagem(1, "hello fernando! how are you?", "09:25", minha = true),
-            Mensagem(2, "hi,  Lucas Mendes", "09:45", minha = false),
-            Mensagem(3, "Can we meet on Friday for the handover?", "09:45", minha = false),
-            Mensagem(4, "Definitely! I'll be free that day.\nSo, I'll see you there.", "10:46", minha = true),
-            Mensagem(5, "It's a deal, then.", "09:50", minha = false),
-            Mensagem(6, "thanks", "10:59", minha = true)
-        )
-    }
+    val viewModel: ConversaViewModel = viewModel()
+    val estado by viewModel.estado.collectAsState()
+    LaunchedEffect(conversaId) { viewModel.carregar(conversaId) }
+    val mensagens = estado.mensagens.map { it.toUi() }
+    val nomeContato = "Conversa #$conversaId"
+    val statusContato = if (estado.carregando) "Carregando..." else "Mensagens da conversa"
+    val contatoOnline = false
 
     var texto by remember { mutableStateOf("") }
     val estadoLista = rememberLazyListState()
@@ -118,13 +107,7 @@ fun ConversaScreen(
         val conteudo = texto.trim()
         if (conteudo.isEmpty()) return
 
-        // --- INTEGRAÇÃO BACK-END (futuro) ---------------------------------
-        // viewModel.enviar(conversaId, conteudo)   // POST /conversas/{id}/mensagens
-        //   - mostrar a mensagem como "enviando" e confirmar quando a API responder
-        //   - em caso de erro, mostrar "não enviada" com opção de tentar de novo
-        // ------------------------------------------------------------------
-        val hora = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-        mensagens.add(Mensagem(mensagens.size + 1, conteudo, hora, minha = true))
+        viewModel.enviar(conversaId, conteudo)
         texto = ""
     }
 

@@ -27,10 +27,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ecowayer.service.SessionStore
+import com.example.ecowayer.ui.ecopontos.EcoPontosViewModel
+import com.example.ecowayer.model.PontoColeta
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,11 +48,12 @@ import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
-import com.mapbox.geojson.Point
-import com.mapbox.maps.extension.compose.MapboxMap
-import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
-import com.mapbox.maps.extension.compose.style.standard.LightPresetValue
-import com.mapbox.maps.extension.compose.style.standard.MapboxStandardStyle
+import com.example.ecowayer.BuildConfig
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.rememberCameraPositionState
 /**
  * Modelo temporário. Quando a API estiver pronta, crie esta classe a partir do
  * JSON retornado (ex.: data class EcoPontoDto) e mova para a pasta data/model.
@@ -57,6 +63,13 @@ data class EcoPonto(
     val materiais: List<String>,
     val aberto: Boolean,
     val distancia: String
+)
+
+private fun PontoColeta.toHomePonto(): EcoPonto = EcoPonto(
+    nome = nome,
+    materiais = materiais.map { it.nome },
+    aberto = !status.equals("inativo", true),
+    distancia = ""
 )
 
 private val filtros = listOf("Todos", "PET", "Vidro", "Papel", "Metal")
@@ -72,25 +85,11 @@ fun HomeScreen(
 ) {
     var filtroSelecionado by remember { mutableStateOf("Todos") }
 
-    // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
-    // Troque os dados abaixo por estados vindos de um HomeViewModel:
-    //
-    // val viewModel: HomeViewModel = viewModel()
-    // val usuario by viewModel.usuario.collectAsState()       // GET /usuarios/me
-    // val saldo by viewModel.saldo.collectAsState()           // GET /usuarios/me/saldo
-    // val ecoPontos by viewModel.ecoPontos.collectAsState()   // GET /ecopontos
-    //
-    // LaunchedEffect(filtroSelecionado) {
-    //     // GET /ecopontos?material=PET&lat=...&lng=...   ("Todos" = sem filtro)
-    //     viewModel.carregarEcoPontos(filtroSelecionado)
-    // }
-    // ----------------------------------------------------------------------
-    val nomeUsuario = "Lucas Mendes"   // TODO API
-    val saldo = "3.480"                // TODO API
-    val ecoPontosMock = listOf(        // TODO API
-        EcoPonto("EcoPonto Jardim Sul", listOf("PET", "Vidro", "Papel"), true, "450 m")
-    )
-    val ecoPontos = ecoPontosMock.filter {
+    val pontosViewModel: EcoPontosViewModel = viewModel()
+    val pontosApi by pontosViewModel.pontos.collectAsState()
+    val nomeUsuario = SessionStore.currentUser()?.nome ?: "Usuário EcoWayer"
+    val saldo = "0"
+    val ecoPontos = pontosApi.map { it.toHomePonto() }.filter {
         filtroSelecionado == "Todos" || filtroSelecionado in it.materiais
     }
 
@@ -118,7 +117,7 @@ fun HomeScreen(
             // Saldo
             item { CardSaldo(saldo, onVerExtrato, onTrocarPontos) }
 
-            // Mapa (Mapbox)
+            // Mapa (Google Maps)
             item { MapaEcoPontos(onBuscarEcoPontos) }
 
             // Filtros
@@ -244,19 +243,28 @@ private fun MapaEcoPontos(onBuscarEcoPontos: () -> Unit) {
             .clip(RoundedCornerShape(20.dp))
             .background(Color(0xFFE5ECE4))
     ) {
-        // MAPA (Mapbox) ----------------------------------------------------
-        MapboxMap(
-            modifier = Modifier.fillMaxSize(),
-            mapViewportState = rememberMapViewportState {
-                setCameraOptions {
-                    center(Point.fromLngLat(-46.6333, -23.5505))  // TODO: localização real
-                    zoom(16.0)
-                }
-            },
-
-            logo = {},       // esconde a logo do Mapbox
-            scaleBar = {}    // esconde a escala
-        )
+        if (BuildConfig.GOOGLE_MAPS_API_KEY.isBlank()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable { onBuscarEcoPontos() }
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(Icons.Outlined.NearMe, null, tint = EcoColors.Verde, modifier = Modifier.size(32.dp))
+                Text("Mapa indisponível sem chave do Google Maps", fontWeight = FontWeight.Bold)
+                Text("Toque para ver os EcoPontos", fontSize = 12.sp, color = Color(0xFF555555))
+            }
+        } else {
+            GoogleMap(
+                modifier = Modifier.fillMaxSize(),
+                cameraPositionState = rememberCameraPositionState {
+                    position = CameraPosition.fromLatLngZoom(LatLng(-23.5505, -46.6333), 16f)
+                },
+                uiSettings = MapUiSettings(zoomControlsEnabled = false, mapToolbarEnabled = false)
+            )
+        }
 
         // Camada transparente: o mapa vira uma prévia clicável e não briga
         // com a rolagem da tela

@@ -27,10 +27,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ecowayer.model.AnuncioApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +68,17 @@ data class MeuAnuncio(
     val status: StatusAnuncio
 )
 
+private fun AnuncioApi.toMeuAnuncio() = MeuAnuncio(
+    id = id,
+    titulo = nome,
+    bairro = "",
+    status = when (status.lowercase()) {
+        "pausado" -> StatusAnuncio.Pausado
+        "concluido" -> StatusAnuncio.Concluido
+        else -> StatusAnuncio.Ativo
+    }
+)
+
 @Composable
 fun MeusAnunciosScreen(
     onBack: () -> Unit = {},
@@ -73,37 +88,9 @@ fun MeusAnunciosScreen(
     onAbrirAnuncio: (MeuAnuncio) -> Unit = {},
     onEditarAnuncio: (MeuAnuncio) -> Unit = {}
 ) {
-    // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
-    // Troque o estado local abaixo por um MeusAnunciosViewModel:
-    //
-    // val viewModel: MeusAnunciosViewModel = viewModel()
-    // val anuncios by viewModel.anuncios.collectAsState()   // GET /usuarios/me/anuncios
-    //
-    // LaunchedEffect(Unit) { viewModel.carregar() }
-    //
-    // Trate também carregando e erro (CircularProgressIndicator / "Tentar de novo").
-    // ----------------------------------------------------------------------
-    var anuncios by remember {                                   // TODO API
-        mutableStateOf(
-            listOf(
-                MeuAnuncio(1, "Lote de Garrafas PET", "Pinheiros", StatusAnuncio.Ativo),
-                MeuAnuncio(2, "Papelão para Mudança", "Vila Madalena", StatusAnuncio.Concluido),
-                MeuAnuncio(3, "Paletes de Madeira (4 un)", "Butantã", StatusAnuncio.Pausado)
-            )
-        )
-    }
-
-    // Alterações locais (para a tela já funcionar). Cada uma deve chamar a API:
-    fun mudarStatus(anuncio: MeuAnuncio, novo: StatusAnuncio) {
-        // viewModel.mudarStatus(anuncio.id, novo)   // PATCH /anuncios/{id}/status
-        anuncios = anuncios.map { if (it.id == anuncio.id) it.copy(status = novo) else it }
-    }
-
-    fun excluir(anuncio: MeuAnuncio) {
-        // (recomendado) confirmar antes com um AlertDialog "Excluir este anúncio?"
-        // viewModel.excluir(anuncio.id)             // DELETE /anuncios/{id}
-        anuncios = anuncios.filter { it.id != anuncio.id }
-    }
+    val viewModel: MeusAnunciosViewModel = viewModel()
+    val estado by viewModel.estado.collectAsState()
+    val anuncios = estado.anuncios.map { it.toMeuAnuncio() }
 
     Scaffold(
         containerColor = Color(0xFFF8F9FA),
@@ -164,7 +151,11 @@ fun MeusAnunciosScreen(
                 HorizontalDivider(color = Color(0xFFEEEEEE))
             }
 
-            if (anuncios.isEmpty()) {
+            if (estado.carregando) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Carregando seus anúncios...", color = Color.Gray) }
+            } else if (estado.erro != null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(estado.erro!!, color = Color(0xFFB3261E)) }
+            } else if (anuncios.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         "Você ainda não publicou anúncios.",
@@ -188,10 +179,10 @@ fun MeusAnunciosScreen(
                                 //   dados: GET /anuncios/{id}  e  PUT /anuncios/{id}
                                 onEditarAnuncio(anuncio)
                             },
-                            onPausar = { mudarStatus(anuncio, StatusAnuncio.Pausado) },
-                            onReativar = { mudarStatus(anuncio, StatusAnuncio.Ativo) },
-                            onConcluir = { mudarStatus(anuncio, StatusAnuncio.Concluido) },
-                            onExcluir = { excluir(anuncio) }
+                            onPausar = { viewModel.atualizarStatus(estado.anuncios.first { it.id == anuncio.id }, "pausado") },
+                            onReativar = { viewModel.atualizarStatus(estado.anuncios.first { it.id == anuncio.id }, "ativo") },
+                            onConcluir = { viewModel.atualizarStatus(estado.anuncios.first { it.id == anuncio.id }, "concluido") },
+                            onExcluir = { viewModel.excluir(anuncio.id) }
                         )
                     }
                 }

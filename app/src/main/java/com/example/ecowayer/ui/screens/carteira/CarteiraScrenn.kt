@@ -27,6 +27,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ecowayer.model.MovimentoCarteiraApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
+import com.example.ecowayer.ui.components.ImagemRemota
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
 import java.text.NumberFormat
@@ -67,7 +72,8 @@ data class Voucher(
     val id: Int,
     val titulo: String,
     val custoPontos: Int,
-    val validadeDias: Int,
+    val valorReais: Double,
+    val categoria: String,
     val imagemUrl: String? = null
 )
 
@@ -80,6 +86,13 @@ data class MovimentoExtrato(
 private fun Int.formatado(): String =
     NumberFormat.getIntegerInstance(Locale("pt", "BR")).format(this)
 
+private fun MovimentoCarteiraApi.toMovimento() = MovimentoExtrato(
+    titulo = categoria_nome?.let { "Reciclagem de $it" }
+        ?: if (id_entrega != null) "Entrega #$id_entrega" else "Crédito de pontos",
+    data = data_registro.orEmpty().replace('T', ' ').take(16).ifBlank { "Data não informada" },
+    pontos = qntd_pontos
+)
+
 @Composable
 fun CarteiraScreen(
     onNavegar: (DestinoBarra) -> Unit = {},
@@ -87,31 +100,25 @@ fun CarteiraScreen(
     onVerTodasMissoes: () -> Unit = {},
     onTrocarVoucher: (Voucher) -> Unit = {}
 ) {
-    // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
-    // Troque os dados abaixo por estados vindos de um CarteiraViewModel:
-    //
-    // val viewModel: CarteiraViewModel = viewModel()
-    // val resumo by viewModel.resumo.collectAsState()       // GET /usuarios/me/carteira
-    // val missoes by viewModel.missoes.collectAsState()     // GET /missoes?periodo=semanal
-    // val vouchers by viewModel.vouchers.collectAsState()   // GET /vouchers
-    // val extrato by viewModel.extrato.collectAsState()     // GET /usuarios/me/extrato
-    //
-    // LaunchedEffect(Unit) { viewModel.carregarTudo() }
-    //
-    // Trate também carregando, erro e listas vazias.
-    // Trocar voucher:  viewModel.trocarVoucher(voucher.id)  // POST /vouchers/{id}/resgatar
-    // ----------------------------------------------------------------------
-    val resumo = ResumoCarteira(3480, "Guardião", "Floresta", 0.7f, 520)          // TODO API
-    val missoes = listOf(                                                           // TODO API
-        Missao("3 entregas em 7 dias", "2 de 3", 300),
-        Missao("Separar Vidro", "0 de 1", 150)
+
+    val viewModel: CarteiraViewModel = viewModel()
+    val estado by viewModel.estado.collectAsState()
+    val carteira = estado.carteira
+    val dadosResumo = carteira?.resumo
+    val resumo = ResumoCarteira(
+        pontos = dadosResumo?.pontos ?: 0,
+        nivelAtual = dadosResumo?.nivel_atual?.nome ?: "Sem nível",
+        proximoNivel = dadosResumo?.proximo_nivel?.nome ?: "Nível máximo",
+        progresso = dadosResumo?.progresso ?: 0f,
+        pontosParaProximoNivel = dadosResumo?.pontos_para_proximo_nivel ?: 0
     )
-    val vouchers = listOf(                                                          // TODO API
-        Voucher(1, "R$ 10 no Mercado Verde", 1000, 30)
-    )
-    val extrato = listOf(                                                           // TODO API
-        MovimentoExtrato("Entrega de PET · 12 kg", "Hoje, 09:14", 240)
-    )
+    val missoes = carteira?.missoes.orEmpty().map {
+        Missao(it.titulo, "${it.progresso} de ${it.meta}", it.pontos_bonus)
+    }
+    val vouchers = carteira?.vouchers.orEmpty().map {
+        Voucher(it.id, it.nome, it.pontos_resgate, it.valor_reais, it.categoria, it.imagem_url)
+    }
+    val extrato = carteira?.extrato.orEmpty().map { it.toMovimento() }
 
     Scaffold(
         containerColor = Color.White,
@@ -142,6 +149,21 @@ fun CarteiraScreen(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 8.dp)
                 )
+            }
+
+            if (estado.carregando) {
+                item { Text("Carregando dados da carteira...", color = Color(0xFF666666), fontSize = 13.sp) }
+            }
+
+            estado.erro?.let { mensagem ->
+                item {
+                    Text(
+                        mensagem,
+                        color = Color(0xFFB00020),
+                        fontSize = 13.sp,
+                        modifier = Modifier.clickable { viewModel.carregar() }
+                    )
+                }
             }
 
             // Pontos acumulados
@@ -310,11 +332,12 @@ private fun CardVoucher(voucher: Voucher, onTrocar: () -> Unit) {
         //     contentScale = ContentScale.Crop,
         //     modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp))
         // )
-        Box(
+        ImagemRemota(
+            url = voucher.imagemUrl,
+            descricao = voucher.titulo,
             modifier = Modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFFE0E0E0))
         )
         // -------------------------------------------------------------------
 
@@ -325,7 +348,7 @@ private fun CardVoucher(voucher: Voucher, onTrocar: () -> Unit) {
         ) {
             Text(voucher.titulo, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             Text(
-                "${voucher.custoPontos.formatado()} pts · válido ${voucher.validadeDias} dias",
+                "${moeda(voucher.valorReais)} · ${voucher.custoPontos.formatado()} pts",
                 fontSize = 12.sp,
                 color = Color(0xFF666666)
             )
@@ -344,6 +367,9 @@ private fun CardVoucher(voucher: Voucher, onTrocar: () -> Unit) {
         )
     }
 }
+
+private fun moeda(valor: Double): String =
+    NumberFormat.getCurrencyInstance(Locale("pt", "BR")).format(valor)
 
 @Composable
 private fun ItemExtrato(movimento: MovimentoExtrato) {

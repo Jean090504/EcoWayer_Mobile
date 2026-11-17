@@ -32,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +53,7 @@ import com.example.ecowayer.service.RetrofitFactory
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
 import com.example.ecowayer.util.MaskTransformation
+import kotlinx.coroutines.launch
 
 @Composable
 fun CadastroScreen(
@@ -70,14 +72,29 @@ fun CadastroScreen(
     var generos by remember { mutableStateOf<List<Genero>>(emptyList()) }
     var generoSelecionado by remember { mutableStateOf<Genero?>(null) }
     var menuGenerosAberto by remember { mutableStateOf(false) }
+    var generosCarregando by remember { mutableStateOf(true) }
+    var erroGeneros by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
+    suspend fun carregarGeneros() {
+        generosCarregando = true
+        erroGeneros = null
         runCatching {
             RetrofitFactory.getCadastroService().listarGeneros()
         }.onSuccess { resposta ->
-            generos = resposta.response?.genero.orEmpty()
+            val lista = resposta.response?.genero.orEmpty()
+            if (resposta.status && lista.isNotEmpty()) {
+                generos = lista
+            } else {
+                erroGeneros = resposta.message ?: "Nenhum gênero foi cadastrado no servidor."
+            }
+        }.onFailure { erro ->
+            erroGeneros = erro.message ?: "Não foi possível carregar os gêneros."
         }
+        generosCarregando = false
     }
+
+    LaunchedEffect(Unit) { carregarGeneros() }
 
     Column(
         modifier = Modifier
@@ -171,7 +188,13 @@ fun CadastroScreen(
 
             Box {
                 Button(
-                    onClick = { menuGenerosAberto = true },
+                    onClick = {
+                        if (generos.isEmpty()) {
+                            scope.launch { carregarGeneros() }
+                        } else {
+                            menuGenerosAberto = true
+                        }
+                    },
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.White,
@@ -179,7 +202,14 @@ fun CadastroScreen(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(generoSelecionado?.nome ?: "Selecione seu gênero")
+                    Text(
+                        when {
+                            generoSelecionado != null -> generoSelecionado!!.nome
+                            generosCarregando -> "Carregando gêneros..."
+                            erroGeneros != null -> "Tentar carregar gêneros"
+                            else -> "Selecione seu gênero"
+                        }
+                    )
                 }
                 DropdownMenu(
                     expanded = menuGenerosAberto,
@@ -195,6 +225,15 @@ fun CadastroScreen(
                         )
                     }
                 }
+            }
+
+            erroGeneros?.let { erro ->
+                Text(
+                    text = erro,
+                    color = Color(0xFFB3261E),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
             }
 
             CampoTexto(

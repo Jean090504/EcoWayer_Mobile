@@ -29,6 +29,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ecowayer.model.NotificacaoApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,6 +71,14 @@ data class Notificacao(
     val tipo: TipoNotificacao
 )
 
+private fun NotificacaoApi.toUi() = Notificacao(
+    id = id,
+    titulo = titulo ?: descricao ?: "Notificação EcoWayer",
+    tempo = criado_em.orEmpty(),
+    grupo = "Notificações",
+    tipo = TipoNotificacao.CHAT
+)
+
 @Composable
 fun NotificacoesScreen(
     onBack: () -> Unit = {},
@@ -74,24 +86,9 @@ fun NotificacoesScreen(
     onQrCode: () -> Unit = {},
     onAbrirNotificacao: (Notificacao) -> Unit = {}
 ) {
-    // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
-    // val viewModel: NotificacoesViewModel = viewModel()
-    // val notificacoes by viewModel.notificacoes.collectAsState()  // GET /notificacoes
-    //
-    // LaunchedEffect(Unit) { viewModel.carregar() }
-    //
-    // Ao abrir a tela, marcar como lidas:
-    //   PATCH /notificacoes/lidas
-    // O back-end pode devolver o campo "grupo" (Hoje/Ontem) ou você calcula
-    // no ViewModel a partir da data (ex.: createdAt).
-    // Trate também carregando e erro (CircularProgressIndicator / "Tentar de novo").
-    // ----------------------------------------------------------------------
-    val notificacoes = listOf(                                  // TODO API
-        Notificacao(1, "Carlos enviou uma mensagem no chat.", "Agora mesmo", "Hoje", TipoNotificacao.CHAT),
-        Notificacao(2, "+50 pontos creditados por reciclagem de Vidro.", "Há 2h", "Hoje", TipoNotificacao.PONTOS),
-        Notificacao(3, "Você recebeu uma proposta em \"Papelão para Mudança\".", "Ontem", "Ontem", TipoNotificacao.PROPOSTA),
-        Notificacao(4, "Sua denúncia foi processada e enviada para revisão.", "Ontem", "Ontem", TipoNotificacao.DENUNCIA)
-    )
+    val viewModel: NotificacoesViewModel = viewModel()
+    val estado by viewModel.estado.collectAsState()
+    val notificacoes = estado.notificacoes.map { it.toUi() }
 
     // Mantém a ordem em que os grupos aparecem (Hoje, depois Ontem)
     val grupos = notificacoes.groupBy { it.grupo }
@@ -135,7 +132,11 @@ fun NotificacoesScreen(
             }
             HorizontalDivider(color = Color(0xFFEEEEEE))
 
-            LazyColumn(
+            if (estado.carregando) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Carregando notificações...", color = Color.Gray) }
+            } else if (estado.erro != null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(estado.erro!!, color = Color(0xFFB3261E)) }
+            } else LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color(0xFFF8F9FA)),

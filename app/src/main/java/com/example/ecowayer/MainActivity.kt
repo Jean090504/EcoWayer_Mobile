@@ -6,10 +6,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.example.ecowayer.ui.navigation.AppNavGraph
 import com.example.ecowayer.ui.theme.EcowayerTheme
+import com.example.ecowayer.service.RetrofitFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        RetrofitFactory.inicializar(applicationContext)
         enableEdgeToEdge()
         setContent {
             EcowayerTheme {

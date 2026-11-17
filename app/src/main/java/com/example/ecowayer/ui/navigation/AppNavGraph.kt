@@ -1,11 +1,19 @@
 package com.example.ecowayer.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import com.example.ecowayer.BuildConfig
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -14,6 +22,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.service.RetrofitFactory
+import com.example.ecowayer.service.EcoWayerRepository
+import com.example.ecowayer.service.SessionStore
+import com.example.ecowayer.model.DenunciaRequest
 import com.example.ecowayer.model.CadastroDraft
 import com.example.ecowayer.model.EnderecoCadastroRequest
 import com.example.ecowayer.model.EnderecoDraft
@@ -23,6 +34,7 @@ import retrofit2.awaitResponse
 import com.example.ecowayer.ui.screens.CadastroScreen.CadastroScreen
 import com.example.ecowayer.ui.screens.boasvindas.BoasVindasScreen
 import com.example.ecowayer.ui.screens.carteira.CarteiraScreen
+import com.example.ecowayer.ui.screens.configuracoes.ConfiguracoesScreen
 import com.example.ecowayer.ui.screens.conversa.ConversaScreen
 import com.example.ecowayer.ui.screens.criarAnuncio.CriarAnuncioScreen
 import com.example.ecowayer.ui.screens.denuncia.DenunciarAnuncioScreen
@@ -76,13 +88,51 @@ private fun String.toIsoDate(): String {
 fun AppNavGraph() {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var cadastro by remember { mutableStateOf<CadastroDraft?>(null) }
     var cadastroCarregando by remember { mutableStateOf(false) }
     var cadastroErro by remember { mutableStateOf<String?>(null) }
+    var publicando by remember { mutableStateOf(false) }
+    var erroPublicacao by remember { mutableStateOf<String?>(null) }
+    var enviandoDenuncia by remember { mutableStateOf(false) }
+    var erroDenuncia by remember { mutableStateOf<String?>(null) }
+    val modoAutoLogin = BuildConfig.DEBUG && BuildConfig.DEV_AUTO_LOGIN
+    var autoLoginPronto by remember { mutableStateOf(!modoAutoLogin || SessionStore.isLoggedIn()) }
+    var autoLoginFalhou by remember { mutableStateOf(false) }
+
+    LaunchedEffect(modoAutoLogin) {
+        if (modoAutoLogin && !SessionStore.isLoggedIn()) {
+            try {
+                val resposta = RetrofitFactory.getAuthService().login(
+                    com.example.ecowayer.model.LoginRequest(
+                        BuildConfig.DEV_AUTO_LOGIN_EMAIL,
+                        BuildConfig.DEV_AUTO_LOGIN_PASSWORD
+                    )
+                ).awaitResponse()
+                val usuario = resposta.body()?.response?.usuario
+                if (!resposta.isSuccessful || resposta.body()?.status != true || usuario == null) {
+                    autoLoginFalhou = true
+                } else {
+                    SessionStore.saveUser(usuario)
+                }
+            } catch (_: Exception) {
+                autoLoginFalhou = true
+            } finally {
+                autoLoginPronto = true
+            }
+        }
+    }
+
+    if (!autoLoginPronto) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
 
     NavHost(
         navController = navController,
-        startDestination = Routes.Splash.route
+        startDestination = if (SessionStore.isLoggedIn() && !autoLoginFalhou) Routes.Home.route else Routes.Splash.route
     ) {
         composable(Routes.Splash.route) {
             SplashScreen(
@@ -213,6 +263,7 @@ fun AppNavGraph() {
 
         composable(Routes.EcoPontos.route) {
             EcoPontosScreen(
+                onVoltar = { navController.popBackStack() },
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) },
                 onQrCode = { navController.abrirRegistrarEntrega() }
             )
@@ -234,9 +285,45 @@ fun AppNavGraph() {
             CriarAnuncioScreen(
                 onBack = { navController.popBackStack() },
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) },
+                publicando = publicando,
+                erro = erroPublicacao,
                 onPublicar = { anuncio ->
-                    // TODO: enviar para a API
-                    navController.popBackStack()
+                    scope.launch {
+                        publicando = true
+                        erroPublicacao = null
+                        try {
+                            val normalizar = { valor: String -> java.text.Normalizer.normalize(valor, java.text.Normalizer.Form.NFD).replace("\\p{Mn}+".toRegex(), "").lowercase() }
+                            val repositorio = EcoWayerRepository(context)
+                            val opcoes = repositorio.carregarOpcoes()
+                            val categoria = opcoes.categorias.firstOrNull { normalizar(it.nome) == normalizar(anuncio.categoria) }?.id
+                                ?: opcoes.categorias.firstOrNull()?.id ?: error("Nenhuma categoria cadastrada.")
+                            val modalidadeNome = when (anuncio.modalidade) {
+                                com.example.ecowayer.ui.screens.criarAnuncio.Modalidade.Doacao -> "doacao"
+                                com.example.ecowayer.ui.screens.criarAnuncio.Modalidade.Troca -> "troca"
+                                com.example.ecowayer.ui.screens.criarAnuncio.Modalidade.Venda -> "venda"
+                            }
+                            val modalidade = opcoes.modalidades.firstOrNull { normalizar(it.nome) == modalidadeNome }?.id
+                                ?: opcoes.modalidades.firstOrNull()?.id ?: error("Nenhuma modalidade cadastrada.")
+                            val condicao = opcoes.condicoes.firstOrNull { normalizar(it.nome) == normalizar(anuncio.condicao) }?.id
+                                ?: opcoes.condicoes.firstOrNull()?.id ?: error("Nenhuma condição cadastrada.")
+                            repositorio.publicarAnuncio(
+                                nome = anuncio.titulo,
+                                descricao = anuncio.descricao,
+                                categoria = categoria,
+                                modalidade = modalidade,
+                                condicao = condicao,
+                                preco = anuncio.valor.replace(',', '.'),
+                                quantidade = anuncio.quantidade,
+                                unidade = anuncio.unidade,
+                                imagens = anuncio.imagens
+                            )
+                            navController.popBackStack()
+                        } catch (erro: Exception) {
+                            erroPublicacao = erro.message ?: "Não foi possível publicar o anúncio."
+                        } finally {
+                            publicando = false
+                        }
+                    }
                 }
             )
         }
@@ -281,9 +368,9 @@ fun AppNavGraph() {
                 onQrCode = { navController.abrirRegistrarEntrega() },
                 onInsignias = { navController.navigate(Routes.Insignias.route) },
                 onNotificacoes = { navController.navigate(Routes.Notificacoes.route) },
-                // onTrocasPontos = { navController.navigate(Routes.TrocasPontos.route) },
+                onTrocasPontos = { navController.navigate(Routes.Carteira.route) },
                 onMeusAnuncios = { navController.navigate(Routes.MeusAnuncios.route) },
-                // onConfiguracoes = { navController.navigate(Routes.Configuracoes.route) },
+                onConfiguracoes = { navController.navigate(Routes.Configuracoes.route) },
                 onChat = { navController.navigate(Routes.Chat.route) },
                 onSair = {
                     RetrofitFactory.limparSessao()
@@ -291,6 +378,14 @@ fun AppNavGraph() {
                         popUpTo(0) { inclusive = true }
                     }
                 }
+            )
+        }
+
+        composable(Routes.Configuracoes.route) {
+            ConfiguracoesScreen(
+                onBack = { navController.popBackStack() },
+                onNavegar = { destino -> navController.navegarPelaBarra(destino) },
+                onQrCode = { navController.abrirRegistrarEntrega() }
             )
         }
 
@@ -353,9 +448,33 @@ fun AppNavGraph() {
                 onBack = { navController.popBackStack() },
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) },
                 onQrCode = { navController.abrirRegistrarEntrega() },
+                enviando = enviandoDenuncia,
+                erro = erroDenuncia,
                 onEnviar = { motivo, detalhes ->
-                    // TODO: enviar para a API (POST /anuncios/{id}/denuncias)
-                    navController.popBackStack()
+                    scope.launch {
+                        enviandoDenuncia = true
+                        erroDenuncia = null
+                        try {
+                            val usuario = SessionStore.currentUser() ?: error("Faça login para denunciar um anúncio.")
+                            val tipos = RetrofitFactory.getEcoWayerApi().listarTiposDenuncia()
+                            check(tipos.isSuccessful) { "Não foi possível carregar os motivos de denúncia." }
+                            val tipo = tipos.body()?.response?.tipo_denuncias.orEmpty()
+                                .firstOrNull { it.tipo.equals(motivo.rotulo, true) || it.nome.equals(motivo.rotulo, true) }
+                                ?: tipos.body()?.response?.tipo_denuncias.orEmpty().firstOrNull()
+                                ?: error("Nenhum tipo de denúncia está cadastrado.")
+                            val idAnuncio = entrada.arguments?.getInt("id") ?: 0
+                            val descricao = detalhes.ifBlank { "Denúncia do anúncio $idAnuncio: ${motivo.rotulo}." }
+                            val resposta = RetrofitFactory.getEcoWayerApi().criarDenuncia(
+                                DenunciaRequest(descricao, tipo.id, usuario.id)
+                            )
+                            check(resposta.isSuccessful) { "Não foi possível registrar a denúncia." }
+                            navController.popBackStack()
+                        } catch (erro: Exception) {
+                            erroDenuncia = erro.message ?: "Não foi possível registrar a denúncia."
+                        } finally {
+                            enviandoDenuncia = false
+                        }
+                    }
                 }
             )
         }

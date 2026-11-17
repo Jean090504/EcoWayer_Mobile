@@ -99,6 +99,178 @@ data class PontoColeta(
     @SerializedName("material_aceito") val materiais: List<MaterialAceito> = emptyList()
 )
 
+data class RotaRequest(
+    val origem: Coordenada,
+    val destino: Coordenada
+)
+
+data class Coordenada(
+    val latitude: Double,
+    val longitude: Double
+)
+
+data class RotaCalculada(
+    val distancia_metros: Double = 0.0,
+    val duracao_segundos: Double = 0.0,
+    val distancia_texto: String = "",
+    val duracao_texto: String = "",
+    val polyline: String = ""
+)
+
+data class GeocodificarRequest(val consulta: String)
+
+data class LocalizacaoEncontrada(
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
+    val endereco_formatado: String = ""
+)
+
+data class BuscaLocaisRequest(val latitude: Double, val longitude: Double)
+
+data class LocalReciclagem(
+    val id: String = "",
+    val nome: String = "",
+    val endereco: String = "",
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
+    val maps_url: String = ""
+)
+
+data class LocaisReciclagemResponse(
+    val locais: List<LocalReciclagem> = emptyList()
+)
+
+data class AnuncioApi(
+    val id: Int = 0,
+    val nome: String = "",
+    val descricao: String? = null,
+    val preco: Double? = null,
+    val quantidade: Double? = null,
+    val unidade: String? = null,
+    val peso_kg: Double? = null,
+    val status: String = "ativo",
+    val data_publicacao: String? = null,
+    val imagem: String? = null,
+    val imagens: List<String> = emptyList(),
+    val id_usuario: Int = 0,
+    val id_categoria: Int = 0,
+    val id_modalidade: Int = 0,
+    val id_condicao_item: Int = 0,
+    val categoria: String? = null,
+    val categoria_nome: String? = null,
+    val modalidade_nome: String? = null,
+    val condicao_nome: String? = null,
+    val vendedor: Usuario? = null
+)
+
+data class AnuncioLista(val anuncio: List<AnuncioApi> = emptyList())
+data class AnuncioDetalhe(val anuncio: AnuncioApi? = null)
+data class AnuncioOpcoes(
+    val categorias: List<OpcaoApi> = emptyList(),
+    val modalidades: List<OpcaoApi> = emptyList(),
+    val condicoes: List<OpcaoApi> = emptyList()
+)
+data class OpcaoApi(val id: Int = 0, val nome: String = "")
+
+data class TipoDenuncia(val id: Int = 0, val tipo: String = "", val nome: String = "")
+data class TipoDenunciaLista(val tipo_denuncias: List<TipoDenuncia> = emptyList())
+data class DenunciaRequest(
+    val descricao: String,
+    val id_tipo_denuncias: Int,
+    val id_denunciante: Int,
+    val mensagens: List<Int> = emptyList(),
+    val imagens: List<Int> = emptyList()
+)
+data class DenunciaResponse(val denuncia: DenunciaApi? = null)
+data class DenunciaApi(val id: Int = 0, val descricao: String = "", val status: String? = null)
+
+data class ConversaApi(
+    val id: Int = 0,
+    val id_anuncio: Int = 0,
+    val id_anunciante: Int = 0,
+    val id_interessado: Int = 0,
+    val nome_contato: String? = null,
+    val contato: Usuario? = null,
+    val ultima_mensagem: String? = null,
+    val data_ultima_mensagem: String? = null,
+    val nao_lidas: Int = 0
+)
+data class ConversaLista(val conversa: List<ConversaApi> = emptyList())
+data class MensagemApi(
+    val id: Int = 0,
+    val id_conversa: Int = 0,
+    val id_remetente: Int = 0,
+    val texto: String = "",
+    val criado_em: String? = null,
+    val lida: Boolean = false
+)
+data class MensagemLista(val mensagem: List<MensagemApi> = emptyList())
+data class MensagemRequest(val id_conversa: Int, val texto: String)
+data class EntregaApi(val id: Int = 0, val id_usuario: Int = 0, val id_anuncio: Int? = null, val peso: Double? = null, val status: String? = null, val data_entrega: String? = null)
+data class EntregaLista(val entrega: List<EntregaApi> = emptyList())
+data class PontoRegistro(val id: Int = 0, val id_usuario: Int = 0, val qntd_pontos: Double = 0.0, val id_categoria: Int? = null, val id_entrega: Int? = null, val data_registro: String? = null)
+data class PontoRegistroLista(val pontos: List<PontoRegistro> = emptyList())
+
+data class CarteiraDados(
+    val resumo: ResumoCarteiraApi = ResumoCarteiraApi(),
+    val missoes: List<MissaoCarteiraApi> = emptyList(),
+    val vouchers: List<VoucherCarteiraApi> = emptyList(),
+    val extrato: List<MovimentoCarteiraApi> = emptyList()
+)
+
+data class ResumoCarteiraApi(
+    val pontos: Int = 0,
+    val nivel_atual: NivelImpactoApi? = null,
+    val proximo_nivel: NivelImpactoApi? = null,
+    val progresso: Float = 0f,
+    val pontos_para_proximo_nivel: Int = 0
+)
+
+data class NivelImpactoApi(
+    val id: Int = 0,
+    val nome: String = "",
+    val numero: Int = 0,
+    val meta: Double = 0.0,
+    val unidade: String = ""
+)
+
+data class MissaoCarteiraApi(
+    val id: Int = 0,
+    val id_missao: Int = 0,
+    val titulo: String = "",
+    val descricao: String = "",
+    val meta: Int = 0,
+    val periodo_dias: Int = 0,
+    val pontos_bonus: Int = 0,
+    val progresso: Int = 0,
+    val status: String = "",
+    val data_inicio: String? = null,
+    val data_fim: String? = null
+)
+
+data class VoucherCarteiraApi(
+    val id: Int = 0,
+    val slug_api: String = "",
+    val nome: String = "",
+    val valor_reais: Double = 0.0,
+    val pontos_resgate: Int = 0,
+    val imagem_url: String? = null,
+    val categoria: String = "Gift card",
+    val status: String = "ativo"
+)
+
+data class MovimentoCarteiraApi(
+    val id: Int = 0,
+    val qntd_pontos: Int = 0,
+    val data_registro: String? = null,
+    val id_categoria: Int? = null,
+    val id_entrega: Int? = null,
+    val categoria_nome: String? = null
+)
+
+data class NotificacaoApi(val id: Int = 0, val titulo: String? = null, val descricao: String? = null, val lida: Boolean = false, val criado_em: String? = null)
+data class NotificacaoLista(val notificacao: List<NotificacaoApi> = emptyList())
+
 data class EnderecoPonto(
     val id: Int = 0,
     val cep: String = "",

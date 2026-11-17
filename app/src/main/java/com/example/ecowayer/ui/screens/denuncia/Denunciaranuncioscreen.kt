@@ -63,7 +63,9 @@ fun DenunciarAnuncioScreen(
     onBack: () -> Unit = {},
     onNavegar: (DestinoBarra) -> Unit = {},
     onQrCode: () -> Unit = {},
-    onEnviar: (motivo: MotivoDenuncia, detalhes: String) -> Unit = { _, _ -> }
+    onEnviar: (motivo: MotivoDenuncia, detalhes: String) -> Unit = { _, _ -> },
+    enviando: Boolean = false,
+    erro: String? = null
 ) {
     // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
     // No onEnviar, chame o ViewModel:
@@ -116,6 +118,8 @@ fun DenunciarAnuncioScreen(
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold
                 )
+
+                erro?.let { Text(it, color = Vermelho, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
             }
             HorizontalDivider(color = Color(0xFFEEEEEE))
 
@@ -185,13 +189,13 @@ fun DenunciarAnuncioScreen(
                         .height(52.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .background(Vermelho.copy(alpha = if (podeEnviar) 1f else 0.5f))
-                        .clickable(enabled = podeEnviar) {
+                        .clickable(enabled = podeEnviar && !enviando) {
                             motivo?.let { onEnviar(it, detalhes.trim()) }
                         },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "Enviar denúncia",
+                        if (enviando) "Enviando..." else "Enviar denúncia",
                         color = Color.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
