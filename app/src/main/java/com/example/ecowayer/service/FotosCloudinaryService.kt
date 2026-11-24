@@ -21,7 +21,7 @@ import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
 
-internal interface FotosAnuncioApi {
+internal interface FotosCloudinaryApi {
     @Multipart
     @POST("v1_1/{cloud}/image/upload")
     suspend fun enviar(
@@ -33,7 +33,7 @@ internal interface FotosAnuncioApi {
 
 internal data class FotoEnviada(@SerializedName("secure_url") val url: String?)
 
-internal object FotosAnuncioService {
+internal object FotosCloudinaryService {
     private const val LimiteFoto = 5 * 1024 * 1024
     private val api by lazy {
         Retrofit.Builder()
@@ -41,7 +41,7 @@ internal object FotosAnuncioService {
             .client(OkHttpClient.Builder().callTimeout(60, TimeUnit.SECONDS).build())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(FotosAnuncioApi::class.java)
+            .create(FotosCloudinaryApi::class.java)
     }
 
     suspend fun enviar(contexto: Context, uri: Uri): String {

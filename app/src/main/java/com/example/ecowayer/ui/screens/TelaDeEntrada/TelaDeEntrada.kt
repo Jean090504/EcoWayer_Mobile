@@ -64,6 +64,7 @@ import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.components.ImagemRemota
 import com.example.ecowayer.ui.ecopontos.EcoPontosViewModel
 import com.example.ecowayer.ui.screens.carteira.CarteiraViewModel
+import com.example.ecowayer.ui.screens.carteira.BotaoExtratoPontos
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
 import com.google.android.gms.maps.model.CameraPosition
@@ -225,7 +226,7 @@ private fun CardSaldo(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Row(
-                modifier = Modifier.weight(1f).clickable(onClick = onVerExtrato).padding(vertical = 8.dp),
+                modifier = Modifier.weight(1f).padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -265,6 +266,7 @@ private fun CardSaldo(
             Icon(Icons.Outlined.CardGiftcard, null, modifier = Modifier.size(19.dp))
             Text("Trocar pontos", Modifier.padding(start = 8.dp), fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
+        BotaoExtratoPontos(onVerExtrato, Modifier.padding(top = 8.dp))
     }
 }
 

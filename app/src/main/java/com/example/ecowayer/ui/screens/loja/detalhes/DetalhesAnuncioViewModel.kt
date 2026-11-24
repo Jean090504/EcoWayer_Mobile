@@ -9,7 +9,7 @@ import com.example.ecowayer.model.EditarAnuncioRequest
 import com.example.ecowayer.model.donoId
 import com.example.ecowayer.model.pertenceA
 import com.example.ecowayer.service.SessionStore
-import com.example.ecowayer.service.FotosAnuncioService
+import com.example.ecowayer.service.FotosCloudinaryService
 import com.example.ecowayer.ui.screens.criarAnuncio.NovoAnuncio
 import com.example.ecowayer.ui.screens.criarAnuncio.normalizarOpcaoAnuncio
 import com.google.gson.JsonParser
@@ -90,7 +90,7 @@ class DetalhesAnuncioViewModel : ViewModel() {
             val quantidade = formulario.quantidade.toDoubleOrNull()
                 ?.takeIf { it.isFinite() && it > 0 } ?: error("Informe uma quantidade válida.")
             val fotosNovas = formulario.imagens.map { uri ->
-                fotosEnviadas[uri] ?: FotosAnuncioService.enviar(contexto, uri).also { fotosEnviadas[uri] = it }
+                fotosEnviadas[uri] ?: FotosCloudinaryService.enviar(contexto, uri).also { fotosEnviadas[uri] = it }
             }
             val resposta = api.editarAnuncioPublicado(
                 anuncio.id,

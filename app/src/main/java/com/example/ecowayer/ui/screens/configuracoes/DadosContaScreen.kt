@@ -1,7 +1,11 @@
 package com.example.ecowayer.ui.screens.configuracoes
 
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +63,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.ecowayer.model.EnderecoConta
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
@@ -76,7 +82,9 @@ fun DadosContaScreen(
 ) {
     val estado by viewModel.estado.collectAsState()
     val contexto = LocalContext.current
-    var mostrarFoto by remember { mutableStateOf(false) }
+    val seletorFoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let(viewModel::selecionarFoto)
+    }
     var confirmarDesativacao by remember { mutableStateOf(false) }
 
     LaunchedEffect(estado.sair) {
@@ -117,7 +125,9 @@ fun DadosContaScreen(
                 else -> {
                     val dados = estado.formulario
                     val habilitado = !estado.enviando
-                    FotoConta(dados.foto_url ?: conta.imagem, habilitado) { mostrarFoto = true }
+                    FotoConta(conta.imagem, estado.fotoSelecionada, habilitado) {
+                        seletorFoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
                     CampoConta("Nome completo", dados.nome, habilitado) { viewModel.editar { copy(nome = it) } }
                     CamposEndereco(dados.endereco ?: EnderecoConta(), habilitado) { novo ->
                         viewModel.editar { copy(endereco = novo) }
@@ -150,7 +160,7 @@ fun DadosContaScreen(
                     ) {
                         TextButton(onClick = viewModel::descartar, enabled = habilitado) { Text("Descartar") }
                         Button(
-                            onClick = viewModel::salvar,
+                            onClick = { viewModel.salvar(contexto.applicationContext) },
                             enabled = habilitado,
                             shape = RoundedCornerShape(9.dp),
                             modifier = Modifier.fillMaxWidth(0.45f)
@@ -166,16 +176,6 @@ fun DadosContaScreen(
         }
     }
 
-    if (mostrarFoto) {
-        DialogFoto(
-            valorInicial = estado.formulario.foto_url ?: estado.conta?.imagem.orEmpty(),
-            onFechar = { mostrarFoto = false },
-            onAplicar = { url ->
-                viewModel.editar { copy(foto_url = url) }
-                mostrarFoto = false
-            }
-        )
-    }
     if (confirmarDesativacao) {
         AlertDialog(
             onDismissRequest = { confirmarDesativacao = false },
@@ -193,10 +193,17 @@ fun DadosContaScreen(
 }
 
 @Composable
-private fun FotoConta(url: String?, habilitado: Boolean, onAlterar: () -> Unit) {
+private fun FotoConta(url: String?, foto: Uri?, habilitado: Boolean, onAlterar: () -> Unit) {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         val avatar = Modifier.size(108.dp).clip(CircleShape)
-        if (url.isNullOrBlank()) {
+        if (foto != null) {
+            AsyncImage(
+                model = foto,
+                contentDescription = "Prévia da nova foto de perfil",
+                contentScale = ContentScale.Crop,
+                modifier = avatar
+            )
+        } else if (url.isNullOrBlank()) {
             Box(avatar.background(fundoCampo()), contentAlignment = Alignment.Center) {
                 Icon(Icons.Outlined.Person, null, Modifier.size(45.dp), tint = EcoColors.Verde)
             }
@@ -205,24 +212,6 @@ private fun FotoConta(url: String?, habilitado: Boolean, onAlterar: () -> Unit) 
         }
         TextButton(onClick = onAlterar, enabled = habilitado) { Text("Alterar foto") }
     }
-}
-
-@Composable
-private fun DialogFoto(valorInicial: String, onFechar: () -> Unit, onAplicar: (String) -> Unit) {
-    var url by remember { mutableStateOf(valorInicial) }
-    AlertDialog(
-        onDismissRequest = onFechar,
-        title = { Text("Alterar foto") },
-        text = {
-            CampoConta("Link HTTPS da foto", url, true, tipo = KeyboardType.Uri, onChange = { url = it })
-        },
-        dismissButton = { TextButton(onClick = onFechar) { Text("Cancelar") } },
-        confirmButton = {
-            TextButton(onClick = { onAplicar(url.trim()) }, enabled = url.trim().startsWith("https://", true)) {
-                Text("Aplicar")
-            }
-        }
-    )
 }
 
 @Composable

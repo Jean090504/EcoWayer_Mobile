@@ -28,9 +28,9 @@ Integrações atualmente ligadas à API:
 - conversas e envio/leitura de mensagens;
 - registro de denúncias.
 
-### Fotos na edição de anúncios
+### Fotos de anúncios e do perfil
 
-A edição envia novas fotos pelo mesmo preset sem assinatura usado no frontend
+A edição de anúncios e de perfil envia novas fotos pelo mesmo preset sem assinatura usado no frontend
 web. Configure `CLOUDINARY_CLOUD_NAME` e `CLOUDINARY_UPLOAD_PRESET` no
 `local.properties` ou como propriedades Gradle. O nome da nuvem deve
 corresponder ao configurado no backend. As duas propriedades são parâmetros

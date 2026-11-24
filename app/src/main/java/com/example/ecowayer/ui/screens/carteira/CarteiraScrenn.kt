@@ -98,7 +98,8 @@ fun CarteiraScreen(
     onNavegar: (DestinoBarra) -> Unit = {},
     onQrCode: () -> Unit = {},
     onVerTodasMissoes: () -> Unit = {},
-    onTrocarVoucher: (Voucher) -> Unit = {}
+    onTrocarVoucher: (Voucher) -> Unit = {},
+    onVerExtrato: () -> Unit = {}
 ) {
 
     val viewModel: CarteiraViewModel = viewModel()
@@ -168,6 +169,7 @@ fun CarteiraScreen(
 
             // Pontos acumulados
             item { CardPontos(resumo) }
+            item { BotaoExtratoPontos(onVerExtrato) }
 
             // Missões semanais
             item {
@@ -200,7 +202,7 @@ fun CarteiraScreen(
 
             // Extrato
             item { TituloSecao("Extrato") }
-            items(extrato) { movimento -> ItemExtrato(movimento) }
+            items(extrato.take(3)) { movimento -> ItemExtrato(movimento) }
         }
     }
 }

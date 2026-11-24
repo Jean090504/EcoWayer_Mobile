@@ -1,9 +1,12 @@
 package com.example.ecowayer.ui.screens.configuracoes
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ecowayer.model.AtualizarContaRequest
 import com.example.ecowayer.model.DadosContaApi
+import com.example.ecowayer.service.FotosCloudinaryService
 import com.example.ecowayer.service.RetrofitFactory
 import com.example.ecowayer.service.SessionStore
 import com.google.gson.JsonParser
@@ -20,13 +23,15 @@ data class DadosContaEstado(
     val carregando: Boolean = true,
     val enviando: Boolean = false,
     val mensagem: String? = null,
-    val sair: Boolean = false
+    val sair: Boolean = false,
+    val fotoSelecionada: Uri? = null
 )
 
 class DadosContaViewModel : ViewModel() {
     private val _estado = MutableStateFlow(DadosContaEstado())
     val estado = _estado.asStateFlow()
     private val api = RetrofitFactory.getEcoWayerApi()
+    private var fotoEnviada: Pair<Uri, String>? = null
 
     init {
         carregar()
@@ -61,11 +66,17 @@ class DadosContaViewModel : ViewModel() {
         _estado.update { it.copy(formulario = it.formulario.alterar(), mensagem = null) }
     }
 
+    fun selecionarFoto(uri: Uri) {
+        if (_estado.value.enviando) return
+        fotoEnviada = null
+        _estado.update { it.copy(fotoSelecionada = uri, mensagem = null) }
+    }
+
     fun descartar() {
         _estado.value.conta?.let { preencher(it) }
     }
 
-    fun salvar() {
+    fun salvar(contexto: Context) {
         val atual = _estado.value
         val conta = atual.conta ?: return
         if (atual.enviando) return
@@ -73,13 +84,16 @@ class DadosContaViewModel : ViewModel() {
         val trocouCredencial = !dados.email.trim().equals(conta.email, ignoreCase = true) || !dados.senha.isNullOrEmpty()
         val pedido = dados.copy(
             endereco = dados.endereco?.takeUnless { it == conta.enderecos.firstOrNull() },
-            foto_url = dados.foto_url?.trim()?.takeIf { it.isNotEmpty() && it != conta.imagem },
             senha_atual = dados.senha_atual?.takeIf { trocouCredencial },
             senha = dados.senha?.takeIf { it.isNotEmpty() },
             confirmar_senha = dados.confirmar_senha?.takeIf { !dados.senha.isNullOrEmpty() }
         )
         executar("Não foi possível salvar seus dados.") {
-            val resposta = api.atualizarDadosConta(conta.id, pedido)
+            val fotoUrl = atual.fotoSelecionada?.let { uri ->
+                fotoEnviada?.takeIf { it.first == uri }?.second
+                    ?: FotosCloudinaryService.enviar(contexto, uri).also { fotoEnviada = uri to it }
+            }
+            val resposta = api.atualizarDadosConta(conta.id, pedido.copy(foto_url = fotoUrl))
             check(resposta.isSuccessful && resposta.body()?.status == true) {
                 resposta.mensagem("Não foi possível salvar seus dados.")
             }
@@ -111,6 +125,7 @@ class DadosContaViewModel : ViewModel() {
     }
 
     private fun preencher(conta: DadosContaApi, mensagem: String? = null) {
+        fotoEnviada = null
         _estado.value = DadosContaEstado(
             conta = conta,
             carregando = false,

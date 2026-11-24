@@ -34,6 +34,7 @@ import retrofit2.awaitResponse
 import com.example.ecowayer.ui.screens.CadastroScreen.CadastroScreen
 import com.example.ecowayer.ui.screens.boasvindas.BoasVindasScreen
 import com.example.ecowayer.ui.screens.carteira.CarteiraScreen
+import com.example.ecowayer.ui.screens.carteira.ExtratoPontosScreen
 import com.example.ecowayer.ui.screens.configuracoes.ConfiguracoesScreen
 import com.example.ecowayer.ui.screens.configuracoes.DadosContaScreen
 import com.example.ecowayer.ui.screens.conversa.ConversaScreen
@@ -281,7 +282,7 @@ fun AppNavGraph() {
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) },
                 onQrCode = { navController.abrirRegistrarEntrega() },
                 onBuscarEcoPontos = { navController.navigate(Routes.EcoPontos.criar()) },
-                onVerExtrato = { navController.navegarPelaBarra(DestinoBarra.Carteira) },
+                onVerExtrato = { navController.navigate(Routes.ExtratoPontos.route) },
                 onTrocarPontos = { navController.navigate(Routes.TrocarPontos.route) },
                 onIrParaEcoPonto = { ponto ->
                     navController.navigate(Routes.EcoPontos.criar(ponto.id))
@@ -409,6 +410,15 @@ fun AppNavGraph() {
 
         composable(Routes.Carteira.route) {
             CarteiraScreen(
+                onNavegar = { destino -> navController.navegarPelaBarra(destino) },
+                onQrCode = { navController.abrirRegistrarEntrega() },
+                onVerExtrato = { navController.navigate(Routes.ExtratoPontos.route) }
+            )
+        }
+
+        composable(Routes.ExtratoPontos.route) {
+            ExtratoPontosScreen(
+                onBack = { navController.popBackStack() },
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) },
                 onQrCode = { navController.abrirRegistrarEntrega() }
             )

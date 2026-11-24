@@ -26,6 +26,7 @@ sealed class Routes(val route: String) {
     object RegistrarEntrega : Routes("registrar_entrega")
 
     object Carteira : Routes("carteira")
+    object ExtratoPontos : Routes("extrato_pontos")
     object TrocarPontos : Routes("trocar_pontos")
 
     object Configuracoes : Routes("configuracoes")

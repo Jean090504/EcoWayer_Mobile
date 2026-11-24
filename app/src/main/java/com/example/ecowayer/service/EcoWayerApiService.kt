@@ -133,6 +133,9 @@ interface EcoWayerApiService {
     @GET("user/voucher_catalogo")
     suspend fun listarVouchers(): Response<ApiResponse<CatalogoBeneficios>>
 
+    @GET("user/voucher")
+    suspend fun listarResgates(): Response<ApiResponse<ResgatesExtratoApi>>
+
     @GET("user/voucher/saldo")
     suspend fun consultarSaldoResgate(): Response<ApiResponse<SaldoResgate>>
 
