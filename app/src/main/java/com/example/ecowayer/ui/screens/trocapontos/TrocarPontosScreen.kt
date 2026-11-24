@@ -1,6 +1,7 @@
 package com.example.ecowayer.ui.screens.trocapontos
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,8 +56,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ecowayer.model.BeneficioCatalogo
+import com.example.ecowayer.model.VoucherCarteiraApi
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
+import com.example.ecowayer.ui.components.ImagemRemota
 import com.example.ecowayer.ui.theme.EcoColors
 import java.text.NumberFormat
 import java.util.Locale
@@ -73,12 +77,14 @@ fun TrocarPontosScreen(
     viewModel: TrocarPontosViewModel = viewModel()
 ) {
     val estado by viewModel.estado.collectAsState()
-    var parceiro by rememberSaveable { mutableStateOf<String?>(null) }
+    var filtroSelecionado by rememberSaveable { mutableStateOf<String?>(null) }
     var beneficioId by rememberSaveable { mutableStateOf<Int?>(null) }
     val selecionado = estado.beneficios.firstOrNull { it.id == beneficioId }
-    val parceiros = estado.beneficios.map { it.nome_parceiro }.distinct()
-    val parceiroAtivo = parceiro?.takeIf { it in parceiros }
-    val beneficios = estado.beneficios.filter { parceiroAtivo == null || it.nome_parceiro == parceiroAtivo }
+    val filtros = (estado.beneficios.map { it.nome_parceiro } + estado.giftCards.map { it.categoria })
+        .filter(String::isNotBlank).distinct()
+    val filtroAtivo = filtroSelecionado?.takeIf { it in filtros }
+    val beneficios = estado.beneficios.filter { filtroAtivo == null || it.nome_parceiro == filtroAtivo }
+    val giftCards = estado.giftCards.filter { filtroAtivo == null || it.categoria == filtroAtivo }
 
     BackHandler(enabled = estado.enviando) {}
     Scaffold(
@@ -129,20 +135,20 @@ fun TrocarPontosScreen(
                     )
                 }
             }
-            if (parceiros.isNotEmpty()) {
+            if (filtros.isNotEmpty()) {
                 item {
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        item { FiltroParceiro("Tudo", parceiroAtivo == null) { parceiro = null } }
-                        items(parceiros, key = { it }) { nome ->
-                            FiltroParceiro(nome, nome == parceiroAtivo) { parceiro = nome }
+                        item { FiltroTroca("Tudo", filtroAtivo == null) { filtroSelecionado = null } }
+                        items(filtros, key = { it }) { nome ->
+                            FiltroTroca(nome, nome == filtroAtivo) { filtroSelecionado = nome }
                         }
                     }
                 }
             }
-            if (estado.carregando && beneficios.isEmpty()) {
+            if (estado.carregando && beneficios.isEmpty() && giftCards.isEmpty()) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
@@ -157,14 +163,31 @@ fun TrocarPontosScreen(
                     }
                 }
             }
-            if (!estado.carregando && estado.erroCatalogo == null && beneficios.isEmpty()) {
+            if (estado.erroGiftCards) {
+                item {
+                    Column(Modifier.padding(horizontal = 16.dp)) {
+                        Text("Não foi possível carregar os gift cards.")
+                        if (estado.erroCatalogo == null) {
+                            TextButton(onClick = viewModel::carregar) { Text("Tentar novamente") }
+                        }
+                    }
+                }
+            }
+            if (!estado.carregando && estado.erroCatalogo == null && !estado.erroGiftCards &&
+                beneficios.isEmpty() && giftCards.isEmpty()
+            ) {
                 item { Text("Nenhum benefício disponível agora.", Modifier.padding(horizontal = 16.dp)) }
             }
-            items(beneficios, key = { it.id }) { item ->
-                CardBeneficio(item, !estado.carregando && !estado.enviando) {
+            items(beneficios, key = { "beneficio_${it.id}" }) { item ->
+                val podeResgatar = !estado.carregando && !estado.enviando &&
+                    estado.saldo?.let { it >= item.pontos_necessarios } == true
+                CardBeneficio(item, podeResgatar) {
                     viewModel.fecharAviso()
                     beneficioId = item.id
                 }
+            }
+            items(giftCards, key = { "gift_card_${it.id}" }) { item ->
+                CardGiftCard(item)
             }
         }
     }
@@ -208,7 +231,7 @@ fun TrocarPontosScreen(
             confirmButton = {
                 TextButton(
                     onClick = { viewModel.resgatar(selecionado) },
-                    enabled = !estado.carregando && !estado.enviando
+                    enabled = saldo != null && !saldoInsuficiente && !estado.carregando && !estado.enviando
                 ) {
                     Text(if (estado.enviando) "Resgatando…" else "Confirmar resgate")
                 }
@@ -221,7 +244,7 @@ fun TrocarPontosScreen(
 }
 
 @Composable
-private fun FiltroParceiro(rotulo: String, ativo: Boolean, onClick: () -> Unit) {
+private fun FiltroTroca(rotulo: String, ativo: Boolean, onClick: () -> Unit) {
     Text(
         text = rotulo,
         modifier = Modifier
@@ -265,14 +288,66 @@ private fun CardBeneficio(item: BeneficioCatalogo, habilitado: Boolean, onResgat
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             Text("${item.pontos_necessarios.formatarPontos()} pts", color = VerdeTroca, fontWeight = FontWeight.Bold)
-            TextButton(
-                onClick = onResgatar,
-                enabled = habilitado,
-                colors = ButtonDefaults.textButtonColors(contentColor = VerdeTroca)
-            ) {
-                Text("Resgatar")
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.padding(start = 6.dp).size(16.dp))
+            BotaoResgate("Resgatar", habilitado, onResgatar)
+        }
+    }
+}
+
+@Composable
+private fun CardGiftCard(item: VoucherCarteiraApi) {
+    val forma = RoundedCornerShape(22.dp)
+    val valor = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR")).format(item.valor_reais)
+    Column(
+        Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(forma)
+            .background(Color.White).border(1.dp, Color(0xFFF0EEF4), forma).padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            val miniatura = Modifier.size(64.dp).clip(RoundedCornerShape(14.dp))
+            if (item.imagem_url.isNullOrBlank()) {
+                Box(miniatura.background(Color(0xFFE9F4E7)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.CardGiftcard, null, tint = VerdeTroca, modifier = Modifier.size(28.dp))
+                }
+            } else {
+                ImagemRemota(item.imagem_url, "Imagem do gift card", miniatura)
             }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(item.categoria, fontSize = 12.sp, color = Color(0xFF595363))
+                Text(item.nome, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = EcoColors.TextoPrimario)
+                Text(valor, fontSize = 13.sp, color = Color(0xFF595363))
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("${item.pontos_resgate.formatarPontos()} pts", color = VerdeTroca, fontWeight = FontWeight.Bold)
+            BotaoResgate("Resgate indisponível", habilitado = false, onClick = {})
+        }
+    }
+}
+
+@Composable
+private fun BotaoResgate(rotulo: String, habilitado: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        enabled = habilitado,
+        border = BorderStroke(1.dp, EcoColors.Roxo),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = EcoColors.Roxo,
+            contentColor = Color.White,
+            disabledContainerColor = Color.White,
+            disabledContentColor = EcoColors.Roxo
+        ),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+    ) {
+        Text(rotulo, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        if (habilitado) {
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.padding(start = 6.dp).size(16.dp))
         }
     }
 }

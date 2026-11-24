@@ -57,7 +57,7 @@ import com.example.ecowayer.ui.screens.trocapontos.TrocarPontosScreen
 import com.example.ecowayer.ui.screens.vereficacao.VerificacaoEmailScreen
 import com.example.ecowayer.ui.screens.vereficacao.VerificacaoNumeroScreen
 
-private fun NavController.navegarPelaBarra(destino: DestinoBarra) {
+internal fun NavController.navegarPelaBarra(destino: DestinoBarra) {
     val rota = when (destino) {
         DestinoBarra.Inicio -> Routes.Home.route
         DestinoBarra.Loja -> Routes.Loja.route
@@ -67,6 +67,17 @@ private fun NavController.navegarPelaBarra(destino: DestinoBarra) {
 
     val atual = currentDestination?.route
     if (atual == rota) return
+    val areaCarteira = atual == Routes.Carteira.route || atual == Routes.ExtratoPontos.route
+    if (areaCarteira) {
+        if (!popBackStack(rota, inclusive = false)) {
+            navigate(rota) {
+                popUpTo(Routes.Home.route)
+                launchSingleTop = true
+            }
+        }
+        return
+    }
+
     val telasDaBarra = listOf(Routes.Home, Routes.Loja, Routes.Carteira, Routes.Perfil)
     val saindoDaAba = telasDaBarra.any { it.route == atual }
     if (!saindoDaAba && popBackStack(rota, inclusive = false)) return

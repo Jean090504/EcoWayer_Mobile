@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.ecowayer.model.BeneficioCatalogo
 import com.example.ecowayer.model.ResgateRequest
 import com.example.ecowayer.model.VoucherResgatado
+import com.example.ecowayer.model.VoucherCarteiraApi
 import com.example.ecowayer.service.RetrofitFactory
 import com.google.gson.JsonParser
 import java.util.UUID
@@ -19,6 +20,8 @@ import kotlinx.coroutines.launch
 data class TrocarPontosEstado(
     val carregando: Boolean = false,
     val beneficios: List<BeneficioCatalogo> = emptyList(),
+    val giftCards: List<VoucherCarteiraApi> = emptyList(),
+    val erroGiftCards: Boolean = false,
     val saldo: Int? = null,
     val erroCatalogo: String? = null,
     val enviando: Boolean = false,
@@ -37,11 +40,22 @@ class TrocarPontosViewModel(private val savedState: SavedStateHandle) : ViewMode
 
     fun carregar() {
         if (_estado.value.carregando || _estado.value.enviando) return
-        _estado.update { it.copy(carregando = true, erroCatalogo = null) }
+        _estado.update { it.copy(carregando = true, erroCatalogo = null, erroGiftCards = false) }
         viewModelScope.launch {
             val saldo = async {
                 try {
                     api.consultarSaldoResgate().body()?.response?.saldo
+                } catch (erro: CancellationException) {
+                    throw erro
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            val giftCards = async {
+                try {
+                    val resposta = api.buscarCarteira()
+                    check(resposta.isSuccessful && resposta.body()?.status == true)
+                    checkNotNull(resposta.body()?.response).vouchers.filter { it.status == "ativo" }
                 } catch (erro: CancellationException) {
                     throw erro
                 } catch (_: Exception) {
@@ -63,7 +77,15 @@ class TrocarPontosViewModel(private val savedState: SavedStateHandle) : ViewMode
                 _estado.update { it.copy(erroCatalogo = "Não foi possível carregar os benefícios.") }
             }
             val saldoAtual = saldo.await()
-            _estado.update { it.copy(saldo = saldoAtual, carregando = false) }
+            val cartoes = giftCards.await()
+            _estado.update {
+                it.copy(
+                    saldo = saldoAtual,
+                    giftCards = cartoes ?: it.giftCards,
+                    erroGiftCards = cartoes == null,
+                    carregando = false
+                )
+            }
         }
     }
 
