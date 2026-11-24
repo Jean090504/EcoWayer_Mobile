@@ -22,8 +22,14 @@ data class Usuario(
     val id: Int = 0,
     val nome: String = "",
     val email: String = "",
-    val foto: String? = null
-)
+    val foto: String? = null,
+    val data_cadastro: String? = null,
+    val imagem: ImagemPerfilApi? = null
+) {
+    fun urlFoto() = foto?.takeIf { it.isNotBlank() } ?: imagem?.url?.takeIf { it.isNotBlank() }
+}
+
+data class ImagemPerfilApi(val url: String? = null)
 
 data class Genero(
     val id: Int = 0,
@@ -163,6 +169,11 @@ data class AnuncioApi(
     val vendedor: Usuario? = null
 )
 
+fun AnuncioApi.pertenceA(usuarioId: Int?): Boolean =
+    usuarioId != null && donoId() == usuarioId
+
+fun AnuncioApi.donoId(): Int? = id_usuario.takeIf { it > 0 } ?: vendedor?.id?.takeIf { it > 0 }
+
 data class AnuncioLista(val anuncio: List<AnuncioApi> = emptyList())
 data class AnuncioDetalhe(val anuncio: AnuncioApi? = null)
 data class AnuncioOpcoes(
@@ -179,7 +190,8 @@ data class DenunciaRequest(
     val id_tipo_denuncias: Int,
     val id_denunciante: Int,
     val mensagens: List<Int> = emptyList(),
-    val imagens: List<Int> = emptyList()
+    val imagens: List<Int> = emptyList(),
+    val id_anuncio: Int? = null
 )
 data class DenunciaResponse(val denuncia: DenunciaApi? = null)
 data class DenunciaApi(val id: Int = 0, val descricao: String = "", val status: String? = null)
@@ -189,22 +201,44 @@ data class ConversaApi(
     val id_anuncio: Int = 0,
     val id_anunciante: Int = 0,
     val id_interessado: Int = 0,
+    val anunciante: String? = null,
+    val interessado: String? = null,
+    val foto_anunciante: String? = null,
+    val foto_interessado: String? = null,
     val nome_contato: String? = null,
     val contato: Usuario? = null,
     val ultima_mensagem: String? = null,
+    @com.google.gson.annotations.SerializedName(value = "ultimo_envio", alternate = ["data_ultima_mensagem"])
     val data_ultima_mensagem: String? = null,
     val nao_lidas: Int = 0
-)
+) {
+    fun outroParticipante(idUsuario: Int?): Usuario {
+        val participante = when (idUsuario) {
+            id_anunciante -> Usuario(id_interessado, interessado.orEmpty(), foto = foto_interessado)
+            id_interessado -> Usuario(id_anunciante, anunciante.orEmpty(), foto = foto_anunciante)
+            else -> Usuario()
+        }
+        return participante.copy(
+            nome = participante.nome.ifBlank {
+                nome_contato.orEmpty().ifBlank { contato?.nome.orEmpty() }
+            },
+            foto = participante.foto?.takeIf { it.isNotBlank() } ?: contato?.foto
+        )
+    }
+}
 data class ConversaLista(val conversa: List<ConversaApi> = emptyList())
 data class MensagemApi(
     val id: Int = 0,
     val id_conversa: Int = 0,
     val id_remetente: Int = 0,
     val texto: String = "",
-    val criado_em: String? = null,
-    val lida: Boolean = false
+    @SerializedName(value = "envio", alternate = ["criado_em"])
+    val criado_em: String? = null
 )
-data class MensagemLista(val mensagem: List<MensagemApi> = emptyList())
+data class MensagemLista(
+    @SerializedName(value = "mensagem", alternate = ["mensagens"])
+    val mensagem: List<MensagemApi>? = null
+)
 data class MensagemRequest(val id_conversa: Int, val texto: String)
 data class EntregaApi(val id: Int = 0, val id_usuario: Int = 0, val id_anuncio: Int? = null, val peso: Double? = null, val status: String? = null, val data_entrega: String? = null)
 data class EntregaLista(val entrega: List<EntregaApi> = emptyList())

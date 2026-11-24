@@ -7,7 +7,9 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.Multipart
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Part
@@ -24,6 +26,21 @@ interface EcoWayerApiService {
     @POST("user/rota")
     suspend fun calcularRota(@Body body: RotaRequest): Response<ApiResponse<RotaCalculada>>
 
+    @GET("user/usuario")
+    suspend fun buscarMeuPerfil(): Response<ApiResponse<UsuarioResponse>>
+
+    @GET("user/usuario/{id}/perfil")
+    suspend fun buscarDadosConta(@Path("id") id: Int): Response<ApiResponse<DadosContaResponse>>
+
+    @PATCH("user/usuario/{id}/perfil")
+    suspend fun atualizarDadosConta(
+        @Path("id") id: Int,
+        @Body dados: AtualizarContaRequest
+    ): Response<ApiResponse<DadosContaResponse>>
+
+    @DELETE("user/usuario/{id}")
+    suspend fun desativarConta(@Path("id") id: Int): Response<ApiResponse<Any>>
+
     @GET("user/usuario/{id}")
     suspend fun buscarUsuario(@Path("id") id: Int): Response<ApiResponse<UsuarioResponse>>
 
@@ -36,9 +53,16 @@ interface EcoWayerApiService {
     @GET("user/anuncio/opcoes")
     suspend fun opcoesAnuncio(): Response<ApiResponse<AnuncioOpcoes>>
 
+    @PUT("user/anuncio/{id}/publicar")
+    suspend fun editarAnuncioPublicado(
+        @Path("id") id: Int,
+        @Body dados: EditarAnuncioRequest
+    ): Response<ApiResponse<AnuncioDetalhe>>
+
     @DELETE("user/anuncio/{id}")
     suspend fun excluirAnuncio(@Path("id") id: Int): Response<ApiResponse<Any>>
 
+    @Headers("Content-Type: application/json")
     @PUT("user/anuncio/{id}")
     suspend fun atualizarAnuncio(@Path("id") id: Int, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<ApiResponse<AnuncioDetalhe>>
 
@@ -59,17 +83,25 @@ interface EcoWayerApiService {
     @GET("user/tipo_denuncias")
     suspend fun listarTiposDenuncia(): Response<ApiResponse<TipoDenunciaLista>>
 
+    @Headers("Content-Type: application/json")
     @POST("user/denuncias")
     suspend fun criarDenuncia(@Body body: DenunciaRequest): Response<ApiResponse<DenunciaResponse>>
 
     @GET("user/conversa")
     suspend fun listarConversas(): Response<ApiResponse<ConversaLista>>
 
+    @GET("user/conversa/{id}")
+    suspend fun buscarConversa(@Path("id") id: Int): Response<ApiResponse<ConversaResponse>>
+
+    @Headers("Content-Type: application/json")
     @POST("user/conversa")
     suspend fun criarConversa(@Body body: Map<String, Int>): Response<ApiResponse<ConversaResponse>>
 
     @GET("user/mensagens")
     suspend fun listarMensagens(@Query("id_conversa") conversaId: Int): Response<ApiResponse<MensagemLista>>
+
+    @GET("user/mensagens/{id}")
+    suspend fun buscarMensagem(@Path("id") id: Int): Response<ApiResponse<MensagemResponse>>
 
     @POST("user/mensagens")
     suspend fun enviarMensagem(@Body body: MensagemRequest): Response<ApiResponse<MensagemResponse>>
@@ -99,7 +131,13 @@ interface EcoWayerApiService {
     suspend fun listarInsignias(): Response<ApiResponse<Map<String, @JvmSuppressWildcards Any>>>
 
     @GET("user/voucher_catalogo")
-    suspend fun listarVouchers(): Response<ApiResponse<Map<String, @JvmSuppressWildcards Any>>>
+    suspend fun listarVouchers(): Response<ApiResponse<CatalogoBeneficios>>
+
+    @GET("user/voucher/saldo")
+    suspend fun consultarSaldoResgate(): Response<ApiResponse<SaldoResgate>>
+
+    @POST("user/voucher/resgatar")
+    suspend fun resgatarVoucher(@Body pedido: ResgateRequest): Response<ApiResponse<ResgateResposta>>
 }
 
 data class UsuarioResponse(val usuario: Usuario? = null)

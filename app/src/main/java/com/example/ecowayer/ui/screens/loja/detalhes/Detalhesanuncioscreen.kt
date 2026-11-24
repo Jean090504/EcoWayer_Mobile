@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.HorizontalDivider
@@ -42,8 +43,13 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ecowayer.model.AnuncioApi
+import com.example.ecowayer.model.donoId
+import com.example.ecowayer.model.pertenceA
+import com.example.ecowayer.service.SessionStore
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.components.ImagemRemota
@@ -96,12 +102,19 @@ fun DetalhesAnuncioScreen(
     onBack: () -> Unit = {},
     onNavegar: (DestinoBarra) -> Unit = {},
     onQrCode: () -> Unit = {},
-    onConversar: () -> Unit = {},
-    onDenunciar: () -> Unit = {}
+    onAbrirConversa: (Int) -> Unit = {},
+    onDenunciar: (Int) -> Unit = {},
+    onEditar: (Int) -> Unit = {}
 ) {
     val viewModel: DetalhesAnuncioViewModel = viewModel()
     val estado by viewModel.estado.collectAsState()
-    LaunchedEffect(anuncioId) { viewModel.carregar(anuncioId) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.carregar(anuncioId) }
+    LaunchedEffect(estado.conversaId) {
+        estado.conversaId?.let { id ->
+            viewModel.consumirConversa()
+            onAbrirConversa(id)
+        }
+    }
     val anuncioApi = estado.anuncio
     if (anuncioApi == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -110,6 +123,10 @@ fun DetalhesAnuncioScreen(
         return
     }
     val anuncio = anuncioApi.toDetalhe()
+    val usuarioId = SessionStore.currentUser()?.id
+    val proprio = anuncioApi.pertenceA(usuarioId)
+    val podeInteragir = usuarioId != null && anuncioApi.donoId() != null && !proprio
+    val podeConversar = podeInteragir && anuncioApi.status.equals("ativo", ignoreCase = true)
 
     Scaffold(
         containerColor = Color.White,
@@ -152,12 +169,14 @@ fun DetalhesAnuncioScreen(
 
                 Spacer(Modifier.weight(1f))
 
-                IconButton(onClick = onDenunciar) {
-                    Icon(
-                        Icons.Outlined.Flag,
-                        contentDescription = "Denunciar anúncio",
-                        tint = Color(0xFFC93B36)
-                    )
+                if (podeInteragir) {
+                    IconButton(onClick = { onDenunciar(anuncioApi.id) }) {
+                        Icon(
+                            Icons.Outlined.Flag,
+                            contentDescription = "Denunciar anúncio",
+                            tint = Color(0xFFC93B36)
+                        )
+                    }
                 }
             }
             HorizontalDivider(color = Color(0xFFEEEEEE))
@@ -228,35 +247,47 @@ fun DetalhesAnuncioScreen(
                     )
                 }
 
-                CardAnunciante(anuncio.anunciante)
+                if (proprio) {
+                    Text("Seu anúncio", fontWeight = FontWeight.SemiBold, color = EcoColors.Verde)
+                } else {
+                    CardAnunciante(anuncio.anunciante)
+                }
+                estado.erro?.let { Text(it, color = Color(0xFFB3261E), fontSize = 13.sp) }
             }
 
-            // Botão fixo, logo acima da barra inferior
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(EcoColors.Roxo)
-                    .clickable { onConversar() },
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+            if (proprio || podeConversar) {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(EcoColors.Roxo)
+                        .clickable(enabled = !estado.processando) {
+                            if (proprio) onEditar(anuncioApi.id) else viewModel.iniciarConversa()
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Outlined.ChatBubbleOutline, null,
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Text(
-                        "conversar com anunciante",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            if (proprio) Icons.Outlined.Edit else Icons.Outlined.ChatBubbleOutline, null,
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Text(
+                            when {
+                                proprio -> "Editar anúncio"
+                                estado.processando -> "Abrindo conversa…"
+                                else -> "Conversar com anunciante"
+                            },
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }

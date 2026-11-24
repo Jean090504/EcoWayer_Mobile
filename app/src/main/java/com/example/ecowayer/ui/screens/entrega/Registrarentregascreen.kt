@@ -1,38 +1,34 @@
 package com.example.ecowayer.ui.screens.entrega
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CameraAlt
-import androidx.compose.material.icons.outlined.Scale
+import androidx.compose.material.icons.outlined.CreditCard
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,313 +37,269 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
 
+private val FundoPagamento = Color(0xFFEDF0FF)
+private val TextoApoio = Color(0xFF565264)
+
 @Composable
 fun RegistrarEntregaScreen(
     onNavegar: (DestinoBarra) -> Unit = {},
-    onQrCode: () -> Unit = {},
-    onConcluido: () -> Unit = {}
+    onQrCode: () -> Unit = {}
 ) {
-    var pesoKg by remember { mutableStateOf("") }
-    var fotoAnexada by remember { mutableStateOf(false) }
-    // var codigoQr by remember { mutableStateOf<String?>(null) }   // preenchido ao ler o QR
+    RegistrarEntregaLayout(onNavegar, onQrCode, leitor = { LeitorQrEntrega() })
+}
 
-    // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
-    // val viewModel: EntregaViewModel = viewModel()
-    //
-    // Pontos por kg (hoje fixo em 20): pode vir da API junto com o EcoPonto
-    //   GET /ecopontos/{id}/regras  ->  { pontosPorKg: 20 }
-    // ----------------------------------------------------------------------
-    val pontosPorKg = 20   // TODO API
+private data class ResumoPedido(
+    val numero: String,
+    val subtotal: String,
+    val desconto: String,
+    val total: String,
+    val pontos: Int
+)
 
+@Composable
+private fun RegistrarEntregaLayout(
+    onNavegar: (DestinoBarra) -> Unit,
+    onQrCode: () -> Unit,
+    leitor: @Composable () -> Unit,
+    resumo: ResumoPedido? = null
+) {
     Scaffold(
         containerColor = Color.White,
         bottomBar = {
-            // Nenhum item selecionado: esta tela abre pelo botão central (QR Code)
-            BarraInferior(
-                selecionado = null,
-                onSelecionar = onNavegar,
-                onQrCode = onQrCode
-            )
+            BarraInferior(selecionado = null, onSelecionar = onNavegar, onQrCode = onQrCode)
         }
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .statusBarsPadding()
+            modifier = Modifier.fillMaxSize().padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = buildAnnotatedString {
-                        withStyle(SpanStyle(color = EcoColors.Verde)) { append("Registrar ") }
-                        withStyle(SpanStyle(color = EcoColors.Roxo)) { append("entrega") }
-                    },
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 8.dp)
+            Text(
+                text = buildAnnotatedString {
+                    withStyle(SpanStyle(color = EcoColors.Verde)) { append("Registrar ") }
+                    withStyle(SpanStyle(color = EcoColors.Roxo)) { append("entrega") }
+                },
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            leitor()
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Forma de pagamento", color = EcoColors.TextoPrimario, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                FormaPagamento(
+                    icone = Icons.Outlined.QrCodeScanner,
+                    titulo = "Pix instantâneo",
+                    detalhe = if (resumo == null) "Pagamento indisponível" else "Aprovação imediata sem taxas",
+                    destaque = true
                 )
-
-                LeitorQr()
-
-                // Etiqueta de pontos
-                Text(
-                    text = "+$pontosPorKg pts por kg",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(EcoColors.Verde)
-                        .padding(horizontal = 12.dp, vertical = 5.dp)
+                FormaPagamento(
+                    icone = Icons.Outlined.CreditCard,
+                    titulo = if (resumo == null) "Cartão" else "Mastercard final •••• 8821",
+                    detalhe = if (resumo == null) "Pagamento indisponível" else "Vencimento 08/28"
                 )
-
-                // Peso estimado
-                CardLinha(
-                    icone = {
-                        IconeQuadrado(Icons.Outlined.Scale, EcoColors.Verde)
-                    },
-                    titulo = "Peso estimado"
-                ) {
-                    BasicTextField(
-                        value = pesoKg,
-                        onValueChange = { novo ->
-                            if (novo.length <= 4 && novo.all { it.isDigit() }) pesoKg = novo
-                        },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        textStyle = TextStyle(
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = EcoColors.Verde,
-                            textAlign = TextAlign.End
-                        ),
-                        modifier = Modifier.width(52.dp),
-                        decorationBox = { campo ->
-                            Box(contentAlignment = Alignment.CenterEnd) {
-                                if (pesoKg.isEmpty()) {
-                                    Text("0", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFFBBBBBB))
-                                }
-                                campo()
-                            }
-                        }
-                    )
-                    Text(
-                        " kg",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = EcoColors.Verde
-                    )
-                }
-
-                // Foto do material
-                CardLinha(
-                    icone = {
-                        IconeQuadrado(Icons.Outlined.CameraAlt, EcoColors.Roxo)
-                    },
-                    titulo = "Foto do material"
-                ) {
-                    Text(
-                        text = if (fotoAnexada) "Trocar" else "Anexar",
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(EcoColors.Roxo)
-                            .clickable {
-                                // FOTO (futuro) ------------------------------------
-                                // Abrir câmera/galeria:
-                                //
-                                // val launcher = rememberLauncherForActivityResult(
-                                //     ActivityResultContracts.PickVisualMedia()
-                                // ) { uri -> fotoUri = uri }
-                                // launcher.launch(PickVisualMediaRequest(
-                                //     ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                //
-                                // (para tirar a foto na hora, use TakePicture)
-                                // ---------------------------------------------------
-                                fotoAnexada = true   // temporário
-                            }
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
-                }
             }
 
-            // Botão fixo, logo acima da barra inferior
-            val podeConfirmar = pesoKg.isNotEmpty() && pesoKg.toInt() > 0
-            // Quando o QR estiver funcionando: && codigoQr != null
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(EcoColors.Verde.copy(alpha = if (podeConfirmar) 1f else 0.4f))
-                    .clickable(enabled = podeConfirmar) {
-                        // --- INTEGRAÇÃO BACK-END (futuro) -----------------------
-                        // viewModel.confirmarColeta(
-                        //     codigoQr = codigoQr,
-                        //     pesoKg = pesoKg.toInt(),
-                        //     foto = fotoUri
-                        // )                      // POST /entregas (multipart, com a foto)
-                        //   onSuccess -> onConcluido()
-                        //   onError   -> mostrar mensagem
-                        // --------------------------------------------------------
-                        onConcluido()   // temporário
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "Confirmar coleta",
-                    color = Color.White,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold
-                )
+            ResumoPedidoCard(resumo)
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (resumo != null) {
+                    Text(
+                        "Você ganhará +${resumo.pontos} EcoPontos nesta transação!",
+                        fontSize = 13.sp,
+                        color = EcoColors.Verde,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Button(
+                    onClick = {},
+                    enabled = false,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        disabledContainerColor = EcoColors.Roxo.copy(alpha = 0.15f),
+                        disabledContentColor = EcoColors.Roxo
+                    )
+                ) {
+                    Icon(Icons.Outlined.Lock, null, Modifier.size(20.dp))
+                    Text("Confirmar pagamento", Modifier.padding(start = 8.dp), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
 }
 
-/** Área da câmera com moldura e linha de leitura animada. */
 @Composable
-private fun LeitorQr() {
-    val progresso by rememberInfiniteTransition(label = "leitura").animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1600, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "linhaLeitura"
-    )
+private fun LeitorQrEntrega() {
+    val contexto = LocalContext.current
+    var leituraAtiva by remember { mutableStateOf(false) }
+    var codigoLido by remember { mutableStateOf(false) }
+    var erro by remember { mutableStateOf<String?>(null) }
+    val permissao = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { concedida ->
+        leituraAtiva = concedida
+        if (!concedida) erro = "Permita o acesso à câmera nas configurações do app."
+    }
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(Color(0xFF111111)),
-        contentAlignment = Alignment.Center
-    ) {
-        // CÂMERA (futuro) ---------------------------------------------------
-        // Para ler o QR Code de verdade, use CameraX + ML Kit:
-        //
-        // dependências: androidx.camera:camera-camera2, camera-lifecycle, camera-view
-        //               com.google.mlkit:barcode-scanning
-        // manifest:     <uses-permission android:name="android.permission.CAMERA" />
-        //
-        // Coloque aqui um AndroidView com PreviewView (fundo) e, no
-        // ImageAnalysis, chame o BarcodeScanner. Quando ler um código:
-        //   codigoQr = barcode.rawValue
-        // e valide na API:  GET /ecopontos/qr/{codigo}
-        // -------------------------------------------------------------------
-
-        // Moldura e linha de leitura (visual)
-        Canvas(Modifier.fillMaxSize()) {
-            val lado = 110.dp.toPx()
-            val esquerda = (size.width - lado) / 2f
-            val topo = (size.height - lado) / 2f - 10.dp.toPx()
-            val canto = lado * 0.3f
-            val espessura = 3.dp.toPx()
-            val cor = Color(0xFF666666)
-
-            fun linha(x1: Float, y1: Float, x2: Float, y2: Float) =
-                drawLine(cor, Offset(x1, y1), Offset(x2, y2), espessura, StrokeCap.Round)
-
-            val dir = esquerda + lado
-            val base = topo + lado
-            // cantos
-            linha(esquerda, topo, esquerda + canto, topo); linha(esquerda, topo, esquerda, topo + canto)
-            linha(dir, topo, dir - canto, topo);           linha(dir, topo, dir, topo + canto)
-            linha(esquerda, base, esquerda + canto, base); linha(esquerda, base, esquerda, base - canto)
-            linha(dir, base, dir - canto, base);           linha(dir, base, dir, base - canto)
-
-            // linha verde de leitura
-            val y = topo + lado * progresso
-            drawLine(
-                color = EcoColors.Verde,
-                start = Offset(esquerda - 30.dp.toPx(), y),
-                end = Offset(dir + 30.dp.toPx(), y),
-                strokeWidth = 2.dp.toPx(),
-                cap = StrokeCap.Round
+    if (leituraAtiva) {
+        Box(
+            Modifier.fillMaxWidth().heightIn(min = 220.dp).clip(RoundedCornerShape(24.dp))
+                .background(Color(0xFF111111)),
+            contentAlignment = Alignment.Center
+        ) {
+            CameraQrEntrega(
+                modifier = Modifier.matchParentSize(),
+                aoLer = {
+                    codigoLido = true
+                    leituraAtiva = false
+                },
+                aoFalhar = {
+                    erro = it
+                    leituraAtiva = false
+                }
             )
+            MiraQr(Modifier.align(Alignment.Center))
+            TextButton(
+                onClick = { leituraAtiva = false },
+                modifier = Modifier.align(Alignment.BottomCenter),
+                colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
+            ) { Text("Fechar câmera") }
         }
-
-        Text(
-            text = "Aponte para o QR Code do EcoPonto",
-            fontSize = 12.sp,
-            color = Color(0xFF9A9A9A),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 14.dp)
+    } else {
+        PainelQr(
+            mensagem = when {
+                erro != null -> erro.orEmpty()
+                codigoLido -> "QR Code lido. A validação do pedido está indisponível."
+                else -> "Após receber o produto, escaneie o QR Code do vendedor."
+            },
+            acao = if (codigoLido) "Ler outro QR Code" else "Abrir câmera",
+            onAbrir = {
+                erro = null
+                codigoLido = false
+                if (ContextCompat.checkSelfPermission(contexto, Manifest.permission.CAMERA) ==
+                    PackageManager.PERMISSION_GRANTED
+                ) {
+                    leituraAtiva = true
+                } else {
+                    permissao.launch(Manifest.permission.CAMERA)
+                }
+            }
         )
     }
 }
 
 @Composable
-private fun CardLinha(
-    icone: @Composable () -> Unit,
-    titulo: String,
-    conteudoDireita: @Composable () -> Unit
-) {
+private fun PainelQr(mensagem: String, acao: String, onAbrir: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp)
+            .clip(RoundedCornerShape(24.dp)).background(Color(0xFF111111))
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        MiraQr()
+        Text(
+            mensagem, color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+        TextButton(onClick = onAbrir, colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF8BDC90))) {
+            Text(acao, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun MiraQr(modifier: Modifier = Modifier) {
+    Box(modifier.size(100.dp), contentAlignment = Alignment.Center) {
+        Icon(Icons.Outlined.QrCodeScanner, null, Modifier.size(88.dp), tint = Color(0xFFDEDEDE))
+        Box(Modifier.size(width = 100.dp, height = 2.dp).background(Color(0xFF63C56B)))
+    }
+}
+
+@Composable
+private fun FormaPagamento(icone: ImageVector, titulo: String, detalhe: String, destaque: Boolean = false) {
+    val formato = RoundedCornerShape(22.dp)
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, Color(0xFFE3E3E3), RoundedCornerShape(20.dp))
-            .padding(horizontal = 14.dp, vertical = 14.dp),
+        modifier = Modifier.fillMaxWidth().clip(formato)
+            .background(if (destaque) FundoPagamento else Color.White)
+            .border(1.dp, Color(0xFFF1F0F3), formato)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            Modifier.size(48.dp).clip(RoundedCornerShape(16.dp))
+                .background(if (destaque) EcoColors.Roxo else Color(0xFFF2F2F4)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icone, null, tint = if (destaque) Color.White else TextoApoio)
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(titulo, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = EcoColors.TextoPrimario)
+            Text(detalhe, fontSize = 13.sp, color = TextoApoio)
+        }
+        Box(Modifier.size(20.dp).border(1.dp, Color(0xFFC1BECA), CircleShape))
+    }
+}
+
+@Composable
+private fun ResumoPedidoCard(resumo: ResumoPedido?) {
+    val formato = RoundedCornerShape(22.dp)
+    Column(
+        modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFFF1F0F3), formato).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        LinhaResumo("Resumo do pedido", resumo?.numero.orEmpty(), EcoColors.TextoPrimario, negrito = true)
+        if (resumo == null) {
+            Text("Nenhum pedido vinculado a esta entrega.", color = TextoApoio, fontSize = 14.sp)
+        } else {
+            LinhaResumo("Subtotal da compra", resumo.subtotal, TextoApoio)
+            LinhaResumo("Desconto EcoPontos", resumo.desconto, EcoColors.Verde)
+        }
+        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(FundoPagamento).padding(12.dp)) {
+            LinhaResumo("Total a pagar", resumo?.total ?: "—", EcoColors.Roxo, negrito = true)
+        }
+    }
+}
+
+@Composable
+private fun LinhaResumo(rotulo: String, valor: String, cor: Color, negrito: Boolean = false) {
+    val peso = if (negrito) FontWeight.Bold else FontWeight.Normal
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        icone()
-        Text(
-            titulo,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 12.dp)
-        )
-        Spacer(Modifier.weight(1f))
-        conteudoDireita()
-    }
-}
-
-@Composable
-private fun IconeQuadrado(icone: androidx.compose.ui.graphics.vector.ImageVector, cor: Color) {
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(cor),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(icone, null, tint = Color.White, modifier = Modifier.size(22.dp))
+        Text(rotulo, Modifier.weight(1f), color = cor, fontWeight = peso, fontSize = 16.sp)
+        if (valor.isNotEmpty()) Text(valor, color = cor, fontWeight = peso, fontSize = 15.sp)
     }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun RegistrarEntregaScreenPreview() {
-    EcowayerTheme { RegistrarEntregaScreen() }
+    EcowayerTheme {
+        RegistrarEntregaLayout(
+            onNavegar = {},
+            onQrCode = {},
+            leitor = { PainelQr("Após receber o produto, escaneie o QR Code do vendedor.", "Abrir câmera") {} },
+            resumo = ResumoPedido("#EW-8924", "R$ 38,50", "− R$ 10,00", "R$ 28,50", 35)
+        )
+    }
 }

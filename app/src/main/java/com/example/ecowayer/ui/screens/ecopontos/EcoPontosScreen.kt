@@ -46,6 +46,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,7 +91,10 @@ import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.CameraPositionState
 import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -112,7 +116,8 @@ fun EcoPontosScreen(
     onNavegar: (DestinoBarra) -> Unit = {},
     onQrCode: () -> Unit = {},
     onSelecionarPonto: (PontoColeta) -> Unit = {},
-    viewModel: EcoPontosViewModel = viewModel()
+    viewModel: EcoPontosViewModel = viewModel(),
+    pontoInicialId: Int = 0
 ) {
     val contexto = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -143,6 +148,53 @@ fun EcoPontosScreen(
         position = CameraPosition.fromLatLngZoom(LatLng(LAT_PADRAO, LNG_PADRAO), ZOOM_INICIAL.toFloat())
     }
     var cameraCentralizadaNaLocalizacao by remember { mutableStateOf(false) }
+
+    fun selecionarPonto(ponto: PontoColeta) {
+        selecionado = ponto
+        onSelecionarPonto(ponto)
+    }
+
+    LaunchedEffect(selecionado) {
+        rota = emptyList()
+        resumoRota = null
+        erroRota = null
+        val ponto = selecionado ?: return@LaunchedEffect
+        if (posicaoUsuario == null) {
+            erroRota = "Aguardando sua localização para calcular a rota."
+        }
+        val origem = snapshotFlow { posicaoUsuario }.filterNotNull().first()
+        erroRota = null
+        carregandoRota = true
+        try {
+            val resposta = RetrofitFactory.getEcoWayerApi().calcularRota(
+                RotaRequest(
+                    origem = Coordenada(origem.latitude, origem.longitude),
+                    destino = Coordenada(ponto.latitude, ponto.longitude)
+                )
+            )
+            val dados = resposta.body()?.response
+            if (!resposta.isSuccessful || resposta.body()?.status != true || dados == null) {
+                error(resposta.body()?.message ?: "Não foi possível calcular a rota.")
+            }
+            resumoRota = dados
+            rota = decodificarPolyline(dados.polyline)
+        } catch (erro: CancellationException) {
+            throw erro
+        } catch (erro: Exception) {
+            erroRota = erro.message ?: "Não foi possível calcular a rota."
+        } finally {
+            carregandoRota = false
+        }
+    }
+
+    val pontoInicial = todosPontos.firstOrNull { pontoInicialId > 0 && it.id == pontoInicialId }
+    LaunchedEffect(pontoInicial) {
+        pontoInicial?.let { ponto ->
+            mapViewportState.position = CameraPosition.fromLatLngZoom(LatLng(ponto.latitude, ponto.longitude), 15f)
+            cameraCentralizadaNaLocalizacao = true
+            selecionarPonto(ponto)
+        }
+    }
 
     fun buscarLocaisReciclagem(centro: LatLng) {
         scope.launch {
@@ -303,40 +355,7 @@ fun EcoPontosScreen(
                 temPermissao = temPermissao,
                 mapViewportState = mapViewportState,
                 onPosicaoUsuario = { posicaoUsuario = it },
-                onSelecionar = {
-                    rota = emptyList()
-                    resumoRota = null
-                    erroRota = null
-                    selecionado = it
-                    onSelecionarPonto(it)
-                    val pontoSelecionado = it
-                    val origem = posicaoUsuario
-                    if (origem == null) {
-                        erroRota = "Aguardando sua localização para calcular a rota."
-                    } else {
-                        scope.launch {
-                            carregandoRota = true
-                            try {
-                                val resposta = RetrofitFactory.getEcoWayerApi().calcularRota(
-                                    RotaRequest(
-                                        origem = Coordenada(origem.latitude, origem.longitude),
-                                        destino = Coordenada(pontoSelecionado.latitude, pontoSelecionado.longitude)
-                                    )
-                                )
-                                val dados = resposta.body()?.response
-                                if (!resposta.isSuccessful || resposta.body()?.status != true || dados == null) {
-                                    error(resposta.body()?.message ?: "Não foi possível calcular a rota.")
-                                }
-                                resumoRota = dados
-                                rota = decodificarPolyline(dados.polyline)
-                            } catch (erro: Exception) {
-                                erroRota = erro.message ?: "Não foi possível calcular a rota."
-                            } finally {
-                                carregandoRota = false
-                            }
-                        }
-                    }
-                },
+                onSelecionar = ::selecionarPonto,
                 onFecharCard = {
                     selecionado = null
                     rota = emptyList()
@@ -518,12 +537,9 @@ private fun MapaEcoPontos(
 
         selecionado?.let { ponto ->
             val origem = posicaoUsuario
-            val distancia = distanciaMetros(
-                origem?.latitude ?: LAT_PADRAO,
-                origem?.longitude ?: LNG_PADRAO,
-                ponto.latitude,
-                ponto.longitude
-            ).formatarDistancia()
+            val distancia = origem?.let {
+                distanciaMetros(it.latitude, it.longitude, ponto.latitude, ponto.longitude).formatarDistancia()
+            }.orEmpty()
 
             CardPontoSelecionado(
                 ponto = ponto,

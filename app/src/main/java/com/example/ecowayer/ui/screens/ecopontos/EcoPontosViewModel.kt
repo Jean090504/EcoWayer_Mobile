@@ -20,11 +20,17 @@ class EcoPontosViewModel : ViewModel() {
     private val _erro = MutableStateFlow<String?>(null)
     val erro: StateFlow<String?> = _erro
 
+    private val _carregando = MutableStateFlow(false)
+    val carregando: StateFlow<Boolean> = _carregando
+
     init {
         carregar()
     }
 
     fun carregar() {
+        if (_carregando.value) return
+        _carregando.value = true
+        _erro.value = null
         RetrofitFactory.getPontoColetaService().listar()
             .enqueue(object : Callback<ApiResponse<PontoColetaLista>> {
                 override fun onResponse(
@@ -36,11 +42,13 @@ class EcoPontosViewModel : ViewModel() {
                     } else {
                         _erro.value = "Erro ${response.code()}"
                     }
+                    _carregando.value = false
                 }
 
                 override fun onFailure(call: Call<ApiResponse<PontoColetaLista>>, t: Throwable) {
                     Log.e("API", "Falha: ${t.javaClass.simpleName} - ${t.message}")
                     _erro.value = "Falha: ${t.message}"
+                    _carregando.value = false
                 }
             })
     }

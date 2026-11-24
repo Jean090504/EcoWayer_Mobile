@@ -11,66 +11,75 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.CardGiftcard
+import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.NearMe
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Recycling
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.ecowayer.service.SessionStore
-import com.example.ecowayer.ui.ecopontos.EcoPontosViewModel
-import com.example.ecowayer.model.PontoColeta
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ecowayer.BuildConfig
+import com.example.ecowayer.model.PontoColeta
+import com.example.ecowayer.service.SessionStore
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
+import com.example.ecowayer.ui.components.ImagemRemota
+import com.example.ecowayer.ui.ecopontos.EcoPontosViewModel
+import com.example.ecowayer.ui.screens.carteira.CarteiraViewModel
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
-import com.example.ecowayer.BuildConfig
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
-/**
- * Modelo temporário. Quando a API estiver pronta, crie esta classe a partir do
- * JSON retornado (ex.: data class EcoPontoDto) e mova para a pasta data/model.
- */
-data class EcoPonto(
-    val nome: String,
-    val materiais: List<String>,
-    val aberto: Boolean,
-    val distancia: String
-)
+import java.text.NumberFormat
+import java.util.Locale
 
-private fun PontoColeta.toHomePonto(): EcoPonto = EcoPonto(
-    nome = nome,
-    materiais = materiais.map { it.nome },
-    aberto = !status.equals("inativo", true),
-    distancia = ""
-)
+private val RoxoHome = Color(0xFF7045BC)
+private val VerdeHome = Color(0xFF48A64E)
+private val BordaHome = Color(0xFFDCE3DC)
+private val TextoSecundario = Color(0xFF58665C)
 
 private val filtros = listOf("Todos", "PET", "Vidro", "Papel", "Metal")
 
@@ -81,16 +90,25 @@ fun HomeScreen(
     onBuscarEcoPontos: () -> Unit = {},
     onVerExtrato: () -> Unit = {},
     onTrocarPontos: () -> Unit = {},
-    onIrParaEcoPonto: (EcoPonto) -> Unit = {}
+    onIrParaEcoPonto: (PontoColeta) -> Unit = {}
 ) {
-    var filtroSelecionado by remember { mutableStateOf("Todos") }
-
-    val pontosViewModel: EcoPontosViewModel = viewModel()
-    val pontosApi by pontosViewModel.pontos.collectAsState()
-    val nomeUsuario = SessionStore.currentUser()?.nome ?: "Usuário EcoWayer"
-    val saldo = "0"
-    val ecoPontos = pontosApi.map { it.toHomePonto() }.filter {
-        filtroSelecionado == "Todos" || filtroSelecionado in it.materiais
+    var filtroSelecionado by rememberSaveable { mutableStateOf("Todos") }
+    val preview = LocalInspectionMode.current
+    val usuario = if (preview) null else SessionStore.currentUser()
+    val pontosViewModel: EcoPontosViewModel? = if (preview) null else viewModel()
+    val carteiraViewModel: CarteiraViewModel? = if (preview || usuario == null) null else viewModel()
+    val pontosApi = pontosViewModel?.pontos?.collectAsState()?.value.orEmpty()
+    val carregandoPontos = pontosViewModel?.carregando?.collectAsState()?.value == true
+    val erroPontos = pontosViewModel?.erro?.collectAsState()?.value
+    val carteira = carteiraViewModel?.estado?.collectAsState()?.value
+    val saldo = carteira?.carteira?.resumo?.pontos?.let {
+        NumberFormat.getIntegerInstance(Locale.forLanguageTag("pt-BR")).format(it)
+    }
+    val ecoPontos = pontosApi.filter { ponto ->
+        ponto.status.equals("ativo", ignoreCase = true) &&
+            (filtroSelecionado == "Todos" || ponto.materiais.any {
+                it.nome.contains(filtroSelecionado, ignoreCase = true)
+            })
     }
 
     Scaffold(
@@ -104,23 +122,12 @@ fun HomeScreen(
         }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .statusBarsPadding(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Cabeçalho
-            item { Cabecalho(nomeUsuario) }
+            item { Cabecalho(usuario?.nome ?: "Usuário EcoWayer", usuario?.foto) }
 
-            // Saldo
-            item { CardSaldo(saldo, onVerExtrato, onTrocarPontos) }
-
-            // Mapa (Google Maps)
-            item { MapaEcoPontos(onBuscarEcoPontos) }
-
-            // Filtros
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(filtros) { filtro ->
@@ -133,7 +140,12 @@ fun HomeScreen(
                 }
             }
 
-            // Título da lista
+            item {
+                CardSaldo(saldo, carteira?.carregando == true, onVerExtrato, onTrocarPontos)
+            }
+
+            item { MapaEcoPontos(ecoPontos, onBuscarEcoPontos) }
+
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -146,7 +158,7 @@ fun HomeScreen(
                             .size(36.dp)
                             .border(1.dp, Color(0xFFDDDDDD), CircleShape)
                             .clip(CircleShape)
-                            .clickable { /* TODO: abrir busca */ },
+                            .clickable(onClick = onBuscarEcoPontos),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Outlined.Search, "Buscar", tint = EcoColors.TextoPrimario)
@@ -154,8 +166,24 @@ fun HomeScreen(
                 }
             }
 
-            // Cards dos EcoPontos (vindos da API)
-            items(ecoPontos) { ponto ->
+            if (ecoPontos.isEmpty()) {
+                item {
+                    Text(
+                        when {
+                            carregandoPontos -> "Carregando EcoPontos…"
+                            erroPontos != null -> "Não foi possível carregar os EcoPontos."
+                            pontosApi.isEmpty() -> "Nenhum EcoPonto disponível no momento."
+                            else -> "Nenhum EcoPonto encontrado para este material."
+                        },
+                        color = TextoSecundario,
+                        fontSize = 14.sp
+                    )
+                    if (erroPontos != null) {
+                        TextButton(onClick = { pontosViewModel?.carregar() }) { Text("Tentar novamente") }
+                    }
+                }
+            }
+            items(ecoPontos, key = { it.id }) { ponto ->
                 CardEcoPonto(ponto, onIr = { onIrParaEcoPonto(ponto) })
             }
         }
@@ -163,79 +191,86 @@ fun HomeScreen(
 }
 
 @Composable
-private fun Cabecalho(nome: String) {
+private fun Cabecalho(nome: String, foto: String?) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        // FOTO DO USUÁRIO ---------------------------------------------------
-        // Quando a API devolver a URL da foto (usando Coil: io.coil-kt:coil-compose):
-        //
-        // AsyncImage(
-        //     model = usuario.fotoUrl,
-        //     contentDescription = "Foto de perfil",
-        //     modifier = Modifier.size(56.dp).clip(CircleShape)
-        // )
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFE0E0E0))
-        )
-        // -------------------------------------------------------------------
-        Column(modifier = Modifier.padding(start = 12.dp)) {
-            Text("Olá, bem-vindo!", fontSize = 13.sp, color = Color(0xFF555555))
-            Text(nome, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        val avatar = Modifier.size(54.dp).clip(CircleShape)
+        if (foto.isNullOrBlank()) {
+            Box(avatar.background(Color(0xFFEAF4EA)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.Person, null, tint = VerdeHome)
+            }
+        } else {
+            ImagemRemota(foto, "Foto de perfil", avatar)
+        }
+        Column(modifier = Modifier.padding(start = 16.dp)) {
+            Text("Olá, bem-vindo!", fontSize = 14.sp, color = TextoSecundario)
+            Text(nome, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = EcoColors.TextoPrimario)
         }
     }
 }
 
 @Composable
 private fun CardSaldo(
-    saldo: String,
+    saldo: String?,
+    carregando: Boolean,
     onVerExtrato: () -> Unit,
     onTrocarPontos: () -> Unit
 ) {
+    var mostrarSaldo by rememberSaveable { mutableStateOf(true) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(EcoColors.Roxo)
-            .padding(18.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(Brush.linearGradient(listOf(Color(0xFFDEFADD), Color.White, Color(0xFFF5EFFF))))
+            .padding(16.dp)
     ) {
-        Text("Saldo ecológico disponível", fontSize = 13.sp, color = Color.White.copy(alpha = 0.8f))
-        Row(
-            verticalAlignment = Alignment.Bottom,
-            modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
-        ) {
-            Text(saldo, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.weight(1f).clickable(onClick = onVerExtrato).padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(Icons.Outlined.AccountBalanceWallet, null, tint = RoxoHome)
+                Text("Saldo acumulado", color = RoxoHome, fontWeight = FontWeight.Medium)
+            }
+            IconButton(onClick = { mostrarSaldo = !mostrarSaldo }, enabled = saldo != null) {
+                Icon(
+                    if (mostrarSaldo) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
+                    if (mostrarSaldo) "Ocultar saldo" else "Mostrar saldo",
+                    tint = RoxoHome
+                )
+            }
+        }
+        if (saldo == null) {
             Text(
-                " pts",
-                fontSize = 16.sp,
-                color = Color.White.copy(alpha = 0.9f),
-                modifier = Modifier.padding(bottom = 5.dp)
+                if (carregando) "Carregando saldo…" else "Saldo indisponível",
+                color = TextoSecundario,
+                modifier = Modifier.padding(vertical = 12.dp)
             )
+        } else {
+            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(bottom = 14.dp)) {
+                Text(
+                    if (mostrarSaldo) saldo else "••••",
+                    fontSize = 34.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = EcoColors.TextoPrimario
+                )
+                Text(" pts", fontSize = 16.sp, color = VerdeHome, modifier = Modifier.padding(bottom = 5.dp))
+            }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            BotaoSaldo("Ver Extrato", onVerExtrato, Modifier.weight(1f))
-            BotaoSaldo("Trocar pontos", onTrocarPontos, Modifier.weight(1f))
+        Button(
+            onClick = onTrocarPontos,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = RoxoHome, contentColor = Color.White)
+        ) {
+            Icon(Icons.Outlined.CardGiftcard, null, modifier = Modifier.size(19.dp))
+            Text("Trocar pontos", Modifier.padding(start = 8.dp), fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
-private fun BotaoSaldo(texto: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .height(38.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.White.copy(alpha = 0.18f))
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
-    ) {
-        Text(texto, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-    }
-}
-
-@Composable
-private fun MapaEcoPontos(onBuscarEcoPontos: () -> Unit) {
+private fun MapaEcoPontos(pontos: List<PontoColeta>, onBuscarEcoPontos: () -> Unit) {
+    val preview = LocalInspectionMode.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -243,27 +278,41 @@ private fun MapaEcoPontos(onBuscarEcoPontos: () -> Unit) {
             .clip(RoundedCornerShape(20.dp))
             .background(Color(0xFFE5ECE4))
     ) {
-        if (BuildConfig.GOOGLE_MAPS_API_KEY.isBlank()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable { onBuscarEcoPontos() }
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(Icons.Outlined.NearMe, null, tint = EcoColors.Verde, modifier = Modifier.size(32.dp))
-                Text("Mapa indisponível sem chave do Google Maps", fontWeight = FontWeight.Bold)
-                Text("Toque para ver os EcoPontos", fontSize = 12.sp, color = Color(0xFF555555))
-            }
+        if (preview || BuildConfig.GOOGLE_MAPS_API_KEY.isBlank()) {
+            Icon(
+                Icons.Outlined.Map,
+                contentDescription = null,
+                tint = Color(0xFF739079),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 25.dp).size(52.dp)
+            )
         } else {
+            val ponto = pontos.firstOrNull()
+            val centro = ponto?.let { LatLng(it.latitude, it.longitude) } ?: LatLng(-23.5505, -46.6333)
+            val camera = rememberCameraPositionState {
+                position = CameraPosition.fromLatLngZoom(centro, 13f)
+            }
+            LaunchedEffect(centro) {
+                camera.position = CameraPosition.fromLatLngZoom(centro, 13f)
+            }
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
-                cameraPositionState = rememberCameraPositionState {
-                    position = CameraPosition.fromLatLngZoom(LatLng(-23.5505, -46.6333), 16f)
-                },
-                uiSettings = MapUiSettings(zoomControlsEnabled = false, mapToolbarEnabled = false)
-            )
+                cameraPositionState = camera,
+                uiSettings = MapUiSettings(
+                    zoomControlsEnabled = false,
+                    mapToolbarEnabled = false,
+                    scrollGesturesEnabled = false,
+                    zoomGesturesEnabled = false,
+                    rotationGesturesEnabled = false,
+                    tiltGesturesEnabled = false
+                )
+            ) {
+                pontos.forEach { ponto ->
+                    key(ponto.id) {
+                        val posicao = LatLng(ponto.latitude, ponto.longitude)
+                        Marker(state = remember(posicao) { MarkerState(position = posicao) }, title = ponto.nome)
+                    }
+                }
+            }
         }
 
         // Camada transparente: o mapa vira uma prévia clicável e não briga
@@ -273,9 +322,7 @@ private fun MapaEcoPontos(onBuscarEcoPontos: () -> Unit) {
                 .matchParentSize()
                 .clickable { onBuscarEcoPontos() }
         )
-        // ------------------------------------------------------------------
 
-        // Card "Buscar EcoPontos" sobre o mapa
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -293,7 +340,7 @@ private fun MapaEcoPontos(onBuscarEcoPontos: () -> Unit) {
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(EcoColors.Verde),
+                    .background(VerdeHome),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(Icons.Outlined.Search, null, tint = Color.White)
@@ -307,8 +354,8 @@ private fun ChipFiltro(texto: String, selecionado: Boolean, onClick: () -> Unit)
     Box(
         modifier = Modifier
             .clip(CircleShape)
-            .background(if (selecionado) EcoColors.Verde else Color.White)
-            .border(1.dp, if (selecionado) EcoColors.Verde else Color(0xFFDDDDDD), CircleShape)
+            .background(if (selecionado) RoxoHome else Color.White)
+            .border(1.dp, if (selecionado) RoxoHome else BordaHome, CircleShape)
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center
@@ -323,11 +370,11 @@ private fun ChipFiltro(texto: String, selecionado: Boolean, onClick: () -> Unit)
 }
 
 @Composable
-private fun CardEcoPonto(ponto: EcoPonto, onIr: () -> Unit) {
+private fun CardEcoPonto(ponto: PontoColeta, onIr: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color(0xFFE3E3E3), RoundedCornerShape(20.dp))
+            .border(1.dp, BordaHome, RoundedCornerShape(20.dp))
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -335,7 +382,7 @@ private fun CardEcoPonto(ponto: EcoPonto, onIr: () -> Unit) {
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(EcoColors.Verde),
+                .background(VerdeHome),
             contentAlignment = Alignment.Center
         ) {
             Icon(Icons.Outlined.Recycling, null, tint = Color.White, modifier = Modifier.size(26.dp))
@@ -348,34 +395,17 @@ private fun CardEcoPonto(ponto: EcoPonto, onIr: () -> Unit) {
         ) {
             Text(ponto.nome, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Text(
-                ponto.materiais.joinToString(" · "),
+                ponto.materiais.joinToString(" · ") { it.nome },
                 fontSize = 12.sp,
                 color = Color(0xFF666666)
             )
-            Row(
-                modifier = Modifier.padding(top = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = if (ponto.aberto) "Aberto agora" else "Fechado",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (ponto.aberto) EcoColors.Verde else Color(0xFF9E9E9E))
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                )
-                Text(ponto.distancia, fontSize = 12.sp, color = Color(0xFF666666))
-            }
         }
 
         Box(
             modifier = Modifier
                 .size(42.dp)
                 .clip(CircleShape)
-                .background(EcoColors.Verde)
+                .background(VerdeHome)
                 .clickable { onIr() },
             contentAlignment = Alignment.Center
         ) {

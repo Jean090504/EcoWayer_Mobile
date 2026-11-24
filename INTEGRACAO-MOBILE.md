@@ -27,3 +27,11 @@ Integrações atualmente ligadas à API:
 - notificações;
 - conversas e envio/leitura de mensagens;
 - registro de denúncias.
+
+### Fotos na edição de anúncios
+
+A edição envia novas fotos pelo mesmo preset sem assinatura usado no frontend
+web. Configure `CLOUDINARY_CLOUD_NAME` e `CLOUDINARY_UPLOAD_PRESET` no
+`local.properties` ou como propriedades Gradle. O nome da nuvem deve
+corresponder ao configurado no backend. As duas propriedades são parâmetros
+públicos do upload. A chave secreta do Cloudinary pertence ao servidor.

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.ecowayer.model.AnuncioApi
 import com.example.ecowayer.service.RetrofitFactory
 import com.example.ecowayer.service.SessionStore
+import com.example.ecowayer.service.buscarAnunciosDoUsuario
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -20,10 +21,9 @@ class MeusAnunciosViewModel : ViewModel() {
     fun carregar() {
         viewModelScope.launch {
             try {
-                val resposta = RetrofitFactory.getEcoWayerApi().listarAnuncios()
-                if (!resposta.isSuccessful && resposta.code() != 404) error("Erro ${resposta.code()}")
-                val id = SessionStore.currentUser()?.id
-                _estado.value = MeusAnunciosUiState(false, resposta.body()?.response?.anuncio.orEmpty().filter { it.id_usuario == id })
+                val id = checkNotNull(SessionStore.currentUser()?.id) { "Entre para ver seus anúncios." }
+                val anuncios = RetrofitFactory.getEcoWayerApi().buscarAnunciosDoUsuario(id)
+                _estado.value = MeusAnunciosUiState(false, anuncios)
             } catch (erro: Exception) {
                 _estado.value = MeusAnunciosUiState(false, erro = erro.message ?: "Não foi possível carregar seus anúncios.")
             }

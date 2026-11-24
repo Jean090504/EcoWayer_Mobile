@@ -1,11 +1,9 @@
 package com.example.ecowayer.ui.screens.criarAnuncio
 
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,21 +28,23 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,10 +54,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -73,9 +71,10 @@ import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
 import com.example.ecowayer.service.RetrofitFactory
+import coil.compose.AsyncImage
+import com.example.ecowayer.model.AnuncioApi
 import com.example.ecowayer.model.AnuncioOpcoes
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.example.ecowayer.ui.components.urlPublica
 
 /**
  * Dados do formulário. Quando a API estiver pronta, mapeie para o body do POST /anuncios.
@@ -89,10 +88,15 @@ data class NovoAnuncio(
     val condicao: String,
     val descricao: String,
     val quantidade: String = "1",
-    val unidade: String = "un"
+    val unidade: String = "un",
+    val fotosMantidas: List<String> = emptyList()
 )
 
 enum class Modalidade(val rotulo: String) { Doacao("Doação"), Troca("Troca"), Venda("Venda") }
+
+internal fun normalizarOpcaoAnuncio(valor: String) =
+    java.text.Normalizer.normalize(valor.trim(), java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{Mn}+"), "").lowercase()
 
 private val listaCategorias = listOf("Material", "Móveis", "Fardos", "Plástico", "Papel")
 private val listaCondicoes = listOf("Novo", "Seminovo", "Usado")
@@ -107,31 +111,63 @@ fun CriarAnuncioScreen(
     onQrCode: () -> Unit = {},
     onPublicar: (NovoAnuncio) -> Unit = {},
     publicando: Boolean = false,
-    erro: String? = null
+    erro: String? = null,
+    edicao: AnuncioApi? = null
 ) {
-    val imagens = remember { mutableStateListOf<Uri>() }
-    var titulo by remember { mutableStateOf("") }
-    var categoria by remember { mutableStateOf("") }
-    var modalidade by remember { mutableStateOf(Modalidade.Venda) }
-    var valor by remember { mutableStateOf("") }
-    var condicao by remember { mutableStateOf("") }
-    var descricao by remember { mutableStateOf("") }
-    var quantidade by remember { mutableStateOf("1") }
-    var unidade by remember { mutableStateOf("un") }
+    val editando = edicao != null
+    val idEdicao = edicao?.id
+    val limiteFotos = if (editando) 6 else 5
+    var imagens by rememberSaveable(idEdicao) { mutableStateOf(arrayListOf<Uri>()) }
+    var fotosMantidas by rememberSaveable(idEdicao) {
+        mutableStateOf(ArrayList(edicao?.let { anuncio ->
+            anuncio.imagens.ifEmpty { listOfNotNull(anuncio.imagem) }.filter(String::isNotBlank).distinct()
+        }.orEmpty()))
+    }
+    var titulo by rememberSaveable(idEdicao) { mutableStateOf(edicao?.nome.orEmpty()) }
+    var categoria by rememberSaveable(idEdicao) {
+        mutableStateOf(edicao?.categoria_nome ?: edicao?.categoria.orEmpty())
+    }
+    var modalidade by rememberSaveable(idEdicao) {
+        mutableStateOf(Modalidade.entries.firstOrNull { normalizarOpcaoAnuncio(it.rotulo) == normalizarOpcaoAnuncio(edicao?.modalidade_nome.orEmpty()) } ?: Modalidade.Venda)
+    }
+    var valor by rememberSaveable(idEdicao) {
+        mutableStateOf(edicao?.preco?.toBigDecimal()?.stripTrailingZeros()?.toPlainString().orEmpty().replace('.', ','))
+    }
+    var condicao by rememberSaveable(idEdicao) { mutableStateOf(edicao?.condicao_nome.orEmpty()) }
+    var descricao by rememberSaveable(idEdicao) { mutableStateOf(edicao?.descricao.orEmpty()) }
+    var quantidade by rememberSaveable(idEdicao) {
+        mutableStateOf((edicao?.quantidade ?: edicao?.peso_kg ?: 1.0)
+            .toBigDecimal().stripTrailingZeros().toPlainString().replace('.', ','))
+    }
+    var unidade by rememberSaveable(idEdicao) {
+        mutableStateOf(edicao?.unidade ?: if (edicao?.peso_kg != null) "kg" else "un")
+    }
 
     val opcoes by produceState<AnuncioOpcoes?>(initialValue = null) {
         value = runCatching { RetrofitFactory.getEcoWayerApi().opcoesAnuncio().body()?.response }.getOrNull()
     }
     val categoriasDisponiveis = opcoes?.categorias?.map { it.nome }?.filter(String::isNotBlank).orEmpty().ifEmpty { listaCategorias }
     val condicoesDisponiveis = opcoes?.condicoes?.map { it.nome }?.filter(String::isNotBlank).orEmpty().ifEmpty { listaCondicoes }
-    LaunchedEffect(opcoes) {
-        if (categoria.isBlank()) categoria = categoriasDisponiveis.firstOrNull().orEmpty()
-        if (condicao.isBlank()) condicao = condicoesDisponiveis.firstOrNull().orEmpty()
+    LaunchedEffect(opcoes, idEdicao) {
+        if (edicao != null) {
+            if (categoria.isBlank()) {
+                categoria = opcoes?.categorias?.firstOrNull { it.id == edicao.id_categoria }?.nome.orEmpty()
+            }
+            if (condicao.isBlank()) {
+                condicao = opcoes?.condicoes?.firstOrNull { it.id == edicao.id_condicao_item }?.nome.orEmpty()
+            }
+        } else {
+            if (categoria.isBlank()) categoria = categoriasDisponiveis.firstOrNull().orEmpty()
+            if (condicao.isBlank()) condicao = condicoesDisponiveis.firstOrNull().orEmpty()
+        }
     }
 
+    val totalFotos = imagens.size + fotosMantidas.size
     val seletorImagens = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickMultipleVisualMedia(maxItems = 5)
-    ) { uris -> imagens.addAll(uris.filter { it !in imagens }) }
+        ActivityResultContracts.PickMultipleVisualMedia(maxItems = limiteFotos)
+    ) { uris ->
+        imagens = ArrayList((imagens + uris).distinct().take(limiteFotos - fotosMantidas.size))
+    }
 
     fun abrirGaleria() = seletorImagens.launch(
         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -144,8 +180,8 @@ fun CriarAnuncioScreen(
         bottomBar = {
             BarraInferior(
                 selecionado = DestinoBarra.Loja,
-                onSelecionar = onNavegar,
-                onQrCode = onQrCode
+                onSelecionar = { if (!publicando) onNavegar(it) },
+                onQrCode = { if (!publicando) onQrCode() }
             )
         }
     ) { padding ->
@@ -167,11 +203,11 @@ fun CriarAnuncioScreen(
                     contentDescription = "Voltar",
                     modifier = Modifier
                         .size(28.dp)
-                        .clickable { onBack() }
+                        .clickable(enabled = !publicando, onClick = onBack)
                 )
                 Text(
                     text = buildAnnotatedString {
-                        withStyle(SpanStyle(color = EcoColors.Verde)) { append("Criar ") }
+                        withStyle(SpanStyle(color = EcoColors.Verde)) { append(if (editando) "Editar " else "Criar ") }
                         withStyle(SpanStyle(color = EcoColors.Roxo)) { append("anúncio") }
                     },
                     fontSize = 26.sp,
@@ -198,30 +234,32 @@ fun CriarAnuncioScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (imagens.isEmpty()) {
-                            BotaoAdicionarImagens(onClick = ::abrirGaleria)
-                        } else {
-                            imagens.forEachIndexed { i, uri ->
-                                Miniatura(uri = uri, onRemover = { imagens.removeAt(i) })
+                        if (totalFotos < limiteFotos && (totalFotos == 0 || editando)) {
+                            BotaoAdicionarImagens(habilitado = !publicando, onClick = ::abrirGaleria)
+                        }
+                        fotosMantidas.forEach { url ->
+                            Miniatura(url.urlPublica(), !publicando) {
+                                fotosMantidas = ArrayList(fotosMantidas - url)
                             }
-                            if (imagens.size < 5) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(width = 96.dp, height = 94.dp)
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .background(RoxoClaro)
-                                        .clickable { abrirGaleria() },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Icon(Icons.Filled.Add, null, tint = EcoColors.Roxo)
-                                        Text(
-                                            "Adicionar\nmais imagens",
-                                            color = EcoColors.Roxo,
-                                            fontSize = 11.sp,
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
+                        }
+                        imagens.forEach { uri ->
+                            Miniatura(uri, !publicando) { imagens = ArrayList(imagens - uri) }
+                        }
+                        if (totalFotos in 1 until limiteFotos && !editando) {
+                            Box(
+                                modifier = Modifier.size(width = 96.dp, height = 94.dp)
+                                    .clip(RoundedCornerShape(14.dp)).background(RoxoClaro)
+                                    .clickable(enabled = !publicando, onClick = ::abrirGaleria),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Filled.Add, null, tint = EcoColors.Roxo)
+                                    Text(
+                                        "Adicionar\nmais imagens",
+                                        color = EcoColors.Roxo,
+                                        fontSize = 11.sp,
+                                        textAlign = TextAlign.Center
+                                    )
                                 }
                             }
                         }
@@ -276,7 +314,13 @@ fun CriarAnuncioScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SecaoCard(modifier = Modifier.weight(1f)) {
                         RotuloCampo("Quantidade")
-                        CampoArredondado(quantidade, { if (it.all(Char::isDigit)) quantidade = it }, "1", teclado = KeyboardType.Number, centralizado = true)
+                        CampoArredondado(
+                            quantidade,
+                            { if (it.matches(Regex("""\d*,?\d*"""))) quantidade = it },
+                            "1",
+                            teclado = KeyboardType.Decimal,
+                            centralizado = true
+                        )
                     }
                     SecaoCard(modifier = Modifier.weight(1f)) {
                         RotuloCampo("Unidade")
@@ -320,8 +364,12 @@ fun CriarAnuncioScreen(
                 }
 
                 // Botão publicar
-                val formularioValido = titulo.isNotBlank() && categoria.isNotBlank() && condicao.isNotBlank() && imagens.isNotEmpty() &&
-                        (!valorHabilitado || valor.isNotBlank())
+                val quantidadeValida = quantidade.replace(',', '.').toDoubleOrNull()?.let {
+                    it > 0 && it <= 999999999 && (unidade != "un" || it % 1 == 0.0)
+                } == true
+                val precoValido = valor.replace(',', '.').toDoubleOrNull()?.let { it.isFinite() && it > 0 } == true
+                val formularioValido = titulo.trim().length in 1..100 && categoria.isNotBlank() &&
+                    condicao.isNotBlank() && totalFotos > 0 && quantidadeValida && (!valorHabilitado || precoValido)
                 erro?.let { Text(it, color = Color(0xFFB3261E), fontSize = 13.sp) }
                 Row(
                     modifier = Modifier
@@ -339,7 +387,7 @@ fun CriarAnuncioScreen(
                                 NovoAnuncio(
                                     imagens.toList(), titulo.trim(), categoria,
                                     modalidade, if (valorHabilitado) valor else "",
-                                    condicao, descricao.trim(), quantidade, unidade
+                                    condicao, descricao.trim(), quantidade.replace(',', '.'), unidade, fotosMantidas.toList()
                                 )
                             )
                         },
@@ -348,7 +396,15 @@ fun CriarAnuncioScreen(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White, modifier = Modifier.size(22.dp))
                     Spacer(Modifier.width(10.dp))
-                    Text(if (publicando) "Publicando..." else "Publicar Anúncio", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        when {
+                            editando && publicando -> "Salvando…"
+                            editando -> "Salvar alterações"
+                            publicando -> "Publicando…"
+                            else -> "Publicar Anúncio"
+                        },
+                        color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -484,7 +540,7 @@ private fun SeletorModalidade(selecionada: Modalidade, onSelecionar: (Modalidade
 }
 
 @Composable
-private fun BotaoAdicionarImagens(onClick: () -> Unit) {
+private fun BotaoAdicionarImagens(habilitado: Boolean, onClick: () -> Unit) {
     val roxo = EcoColors.Roxo
     Box(
         modifier = Modifier
@@ -501,7 +557,7 @@ private fun BotaoAdicionarImagens(onClick: () -> Unit) {
                 )
             }
             .clip(RoundedCornerShape(14.dp))
-            .clickable { onClick() },
+            .clickable(enabled = habilitado, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -518,31 +574,24 @@ private fun BotaoAdicionarImagens(onClick: () -> Unit) {
 }
 
 @Composable
-private fun Miniatura(uri: Uri, onRemover: () -> Unit) {
-    val context = LocalContext.current
-    // Carrega o bitmap fora da main thread. Quando adicionar o Coil, troque por AsyncImage.
-    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, uri) {
-        value = withContext(Dispatchers.IO) {
-            runCatching {
-                context.contentResolver.openInputStream(uri)?.use {
-                    BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = 4 })
-                }?.asImageBitmap()
-            }.getOrNull()
-        }
-    }
-    Box(
-        modifier = Modifier
-            .size(94.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFFE0E0E0))
-            .clickable { onRemover() } // toque remove a imagem
-    ) {
-        bitmap?.let {
-            Image(
-                bitmap = it,
-                contentDescription = "Imagem do anúncio (toque para remover)",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+private fun Miniatura(imagem: Any?, habilitado: Boolean, onRemover: () -> Unit) {
+    Box(Modifier.size(94.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFE0E0E0))) {
+        AsyncImage(
+            model = imagem,
+            contentDescription = "Foto do anúncio",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        IconButton(
+            onClick = onRemover,
+            enabled = habilitado,
+            modifier = Modifier.align(Alignment.TopEnd).size(36.dp)
+        ) {
+            Icon(
+                Icons.Filled.Close,
+                contentDescription = "Remover foto",
+                tint = Color.White,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.65f))
             )
         }
     }

@@ -1,5 +1,7 @@
 package com.example.ecowayer.ui.screens.denuncia
 
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,6 +20,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,23 +28,30 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ecowayer.model.TipoDenuncia
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.theme.EcoColors
@@ -49,41 +59,51 @@ import com.example.ecowayer.ui.theme.EcowayerTheme
 
 private val Vermelho = Color(0xFFC93B36)
 
-/** Motivos de denúncia. O `codigo` é o que deve ir para a API. */
-enum class MotivoDenuncia(val rotulo: String, val codigo: String) {
-    CONTEUDO_IMPROPRIO("Conteúdo impróprio", "conteudo_improprio"),
-    ITEM_DIVERGENTE("Item divergente", "item_divergente"),
-    GOLPE("Golpe", "golpe"),
-    OUTRO("Outro", "outro")
+@Composable
+fun DenunciarScreen(
+    onBack: () -> Unit,
+    onNavegar: (DestinoBarra) -> Unit,
+    onQrCode: () -> Unit,
+    viewModel: DenunciaViewModel = viewModel()
+) {
+    val estado by viewModel.estado.collectAsState()
+    val contexto = LocalContext.current
+    LaunchedEffect(estado.enviada) {
+        if (estado.enviada) {
+            Toast.makeText(contexto, "Denúncia enviada.", Toast.LENGTH_SHORT).show()
+            onBack()
+        }
+    }
+    BackHandler(enabled = estado.enviando) {}
+    FormularioDenuncia(
+        mensagemSelecionada = viewModel.mensagemSelecionada,
+        estado = estado,
+        onBack = { if (!estado.enviando) onBack() },
+        onNavegar = { if (!estado.enviando) onNavegar(it) },
+        onQrCode = { if (!estado.enviando) onQrCode() },
+        onEnviar = viewModel::enviar,
+        onTentarNovamente = viewModel::carregarMotivos
+    )
 }
 
 @Composable
-fun DenunciarAnuncioScreen(
-    anuncioId: Int = 0,
+private fun FormularioDenuncia(
+    mensagemSelecionada: Boolean,
+    estado: DenunciaEstado,
     onBack: () -> Unit = {},
     onNavegar: (DestinoBarra) -> Unit = {},
     onQrCode: () -> Unit = {},
-    onEnviar: (motivo: MotivoDenuncia, detalhes: String) -> Unit = { _, _ -> },
-    enviando: Boolean = false,
-    erro: String? = null
+    onEnviar: (Int, String) -> Unit = { _, _ -> },
+    onTentarNovamente: () -> Unit = {}
 ) {
-    // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
-    // No onEnviar, chame o ViewModel:
-    //
-    // viewModel.denunciar(anuncioId, motivo.codigo, detalhes)   // POST /anuncios/{id}/denuncias
-    //   body: { "motivo": "golpe", "detalhes": "..." }
-    //
-    // Trate carregando (desabilitar o botão) e erro (mensagem + tentar de novo)
-    // e só volte para a tela anterior quando a API responder com sucesso.
-    // ----------------------------------------------------------------------
-    var motivo by remember { mutableStateOf<MotivoDenuncia?>(null) }
-    var detalhes by remember { mutableStateOf("") }
+    var motivo by rememberSaveable { mutableStateOf<Int?>(null) }
+    var detalhes by rememberSaveable { mutableStateOf("") }
 
     Scaffold(
         containerColor = Color.White,
         bottomBar = {
             BarraInferior(
-                selecionado = DestinoBarra.Loja,
+                selecionado = if (mensagemSelecionada) null else DestinoBarra.Loja,
                 onSelecionar = onNavegar,
                 onQrCode = onQrCode
             )
@@ -113,13 +133,12 @@ fun DenunciarAnuncioScreen(
                 Text(
                     text = buildAnnotatedString {
                         withStyle(SpanStyle(color = EcoColors.Verde)) { append("Denunciar ") }
-                        withStyle(SpanStyle(color = EcoColors.Roxo)) { append("Anúncio") }
+                        withStyle(SpanStyle(color = EcoColors.Roxo)) { append(if (mensagemSelecionada) "Mensagem" else "Anúncio") }
                     },
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold
                 )
 
-                erro?.let { Text(it, color = Vermelho, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
             }
             HorizontalDivider(color = Color(0xFFEEEEEE))
 
@@ -136,13 +155,33 @@ fun DenunciarAnuncioScreen(
                     color = Color(0xFF444444)
                 )
 
+                if (mensagemSelecionada) {
+                    Column(
+                        Modifier.padding(top = 12.dp).fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp)).background(Color(0xFFF4F2F8)).padding(12.dp)
+                    ) {
+                        Text("Mensagem anexada", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        estado.mensagem?.let { texto ->
+                            Text(texto, fontSize = 14.sp, maxLines = 5, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+
                 Column(modifier = Modifier.padding(top = 12.dp)) {
-                    MotivoDenuncia.values().forEach { opcao ->
-                        OpcaoMotivo(
-                            rotulo = opcao.rotulo,
-                            selecionado = motivo == opcao,
-                            onClick = { motivo = opcao }
-                        )
+                    when {
+                        estado.carregandoMotivos -> CircularProgressIndicator()
+                        estado.erroMotivos != null -> {
+                            Text(estado.erroMotivos, color = Vermelho)
+                            TextButton(onClick = onTentarNovamente) { Text("Tentar novamente") }
+                        }
+                        estado.motivos.isEmpty() -> Text("Nenhum motivo de denúncia disponível.")
+                        else -> estado.motivos.forEach { opcao ->
+                            OpcaoMotivo(
+                                rotulo = opcao.rotulo(),
+                                selecionado = motivo == opcao.id,
+                                onClick = { if (!estado.enviando) motivo = opcao.id }
+                            )
+                        }
                     }
                 }
 
@@ -156,6 +195,7 @@ fun DenunciarAnuncioScreen(
 
                 BasicTextField(
                     value = detalhes,
+                    enabled = !estado.enviando,
                     onValueChange = { detalhes = it },
                     textStyle = TextStyle(fontSize = 14.sp, color = EcoColors.TextoPrimario),
                     modifier = Modifier
@@ -181,7 +221,10 @@ fun DenunciarAnuncioScreen(
                     }
                 )
 
-                val podeEnviar = motivo != null
+                estado.erroEnvio?.let {
+                    Text(it, color = Vermelho, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+                }
+                val podeEnviar = !estado.enviando && !estado.enviada && estado.motivos.any { it.id == motivo }
                 Box(
                     modifier = Modifier
                         .padding(top = 20.dp)
@@ -189,13 +232,13 @@ fun DenunciarAnuncioScreen(
                         .height(52.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .background(Vermelho.copy(alpha = if (podeEnviar) 1f else 0.5f))
-                        .clickable(enabled = podeEnviar && !enviando) {
+                        .clickable(enabled = podeEnviar) {
                             motivo?.let { onEnviar(it, detalhes.trim()) }
                         },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        if (enviando) "Enviando..." else "Enviar denúncia",
+                        if (estado.enviando) "Enviando..." else "Enviar denúncia",
                         color = Color.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -236,5 +279,13 @@ private fun OpcaoMotivo(rotulo: String, selecionado: Boolean, onClick: () -> Uni
 @Preview(showBackground = true)
 @Composable
 fun DenunciarAnuncioScreenPreview() {
-    EcowayerTheme { DenunciarAnuncioScreen() }
+    EcowayerTheme {
+        FormularioDenuncia(
+            mensagemSelecionada = false,
+            estado = DenunciaEstado(
+                motivos = listOf("Conteúdo impróprio", "Item divergente", "Golpe", "Outro")
+                    .mapIndexed { indice, nome -> TipoDenuncia(id = indice + 1, tipo = nome) }
+            )
+        )
+    }
 }

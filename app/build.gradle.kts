@@ -58,6 +58,12 @@ android {
         buildConfigField("Boolean", "DEV_AUTO_LOGIN", devAutoLogin.toBoolean().toString())
         buildConfigField("String", "DEV_AUTO_LOGIN_EMAIL", "\"${devAutoLoginEmail.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "DEV_AUTO_LOGIN_PASSWORD", "\"${devAutoLoginPassword.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        // Estes valores públicos identificam o upload sem assinatura usado também pelo frontend.
+        listOf("CLOUDINARY_CLOUD_NAME", "CLOUDINARY_UPLOAD_PRESET").forEach { nome ->
+            val valor = providers.gradleProperty(nome).orElse(localProperties.getProperty(nome, "")).get()
+            require(valor.isEmpty() || valor.matches(Regex("[A-Za-z0-9_-]+"))) { "Confira a configuração de $nome." }
+            buildConfigField("String", nome, "\"$valor\"")
+        }
         val googleMapsApiKey = providers.gradleProperty("GOOGLE_MAPS_API_KEY")
             .orElse(localProperties.getProperty("GOOGLE_MAPS_API_KEY", ""))
             .get()

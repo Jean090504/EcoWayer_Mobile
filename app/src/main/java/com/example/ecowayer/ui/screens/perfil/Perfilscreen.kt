@@ -34,6 +34,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,20 +56,13 @@ import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.components.ImagemRemota
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
-import com.example.ecowayer.service.SessionStore
 
-/**
- * Modelo temporário. Quando a API estiver pronta, gere esta classe a partir do
- * JSON retornado e mova para a pasta data/model.
- */
-data class PerfilUsuario(
+private data class PerfilUsuario(
     val nome: String,
     val verificado: Boolean,
-    val membroDesde: String,        // ex.: "mar/2024"
-    val nota: String,               // ex.: "4.9"
-    val totalEntregas: Int,
+    val membroDesde: String,
     val conquistas: Int,
-    val anunciosPublicados: Int,
+    val anunciosPublicados: Int?,
     val fotoUrl: String? = null
 )
 
@@ -80,30 +78,54 @@ fun PerfilScreen(
     onChat: () -> Unit = {},
     onSair: () -> Unit = {}
 ) {
-    // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
-    // Troque o mock abaixo por um estado vindo do ViewModel:
-    //
-    // val viewModel: PerfilViewModel = viewModel()
-    // val perfil by viewModel.perfil.collectAsState()      // GET /usuarios/me/perfil
-    //
-    // LaunchedEffect(Unit) { viewModel.carregar() }
-    //
-    // Trate também carregando e erro (CircularProgressIndicator / "Tentar de novo").
-    // ----------------------------------------------------------------------
-    val usuario = SessionStore.currentUser()
+    val viewModel: PerfilViewModel = viewModel()
+    val estado by viewModel.estado.collectAsState()
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.carregar() }
+
+    val usuario = estado.usuario
     val perfil = PerfilUsuario(
         nome = usuario?.nome ?: "Usuário EcoWayer",
         verificado = usuario != null,
-        membroDesde = "",
-        nota = "—",
-        totalEntregas = 0,
+        membroDesde = estado.dataCadastro ?: when {
+            estado.carregando -> "Carregando data de cadastro…"
+            estado.erro -> "Não foi possível carregar a data de cadastro"
+            else -> "Data de cadastro indisponível"
+        },
         conquistas = 0,
-        anunciosPublicados = 0,
-        fotoUrl = usuario?.foto
+        anunciosPublicados = estado.anunciosPublicados,
+        fotoUrl = usuario?.urlFoto()
     )
 
     Scaffold(
         containerColor = Color.White,
+        topBar = {
+            Column(Modifier.fillMaxWidth().statusBarsPadding()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = buildAnnotatedString {
+                            withStyle(SpanStyle(color = EcoColors.Verde)) { append("Meu ") }
+                            withStyle(SpanStyle(color = EcoColors.Roxo)) { append("Perfil") }
+                        },
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onNotificacoes) {
+                        Icon(
+                            Icons.Outlined.Notifications,
+                            contentDescription = "Notificações",
+                            tint = EcoColors.Verde
+                        )
+                    }
+                }
+                HorizontalDivider(color = Color(0xFFEEEEEE))
+            }
+        },
         bottomBar = {
             BarraInferior(
                 selecionado = DestinoBarra.Perfil,
@@ -112,43 +134,7 @@ fun PerfilScreen(
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .statusBarsPadding()
-        ) {
-            // Cabeçalho com sino de notificações
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = buildAnnotatedString {
-                        withStyle(SpanStyle(color = EcoColors.Verde)) { append("Meu ") }
-                        withStyle(SpanStyle(color = EcoColors.Roxo)) { append("Perfil") }
-                    },
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                IconButton(onClick = {
-                    // FLUXO (futuro): abrir a tela de notificações
-                    //   navController.navigate(Routes.Notificacoes.route)
-                    //   dados: GET /notificacoes
-                    onNotificacoes()
-                }) {
-                    Icon(
-                        Icons.Outlined.Notifications,
-                        contentDescription = "Notificações",
-                        tint = EcoColors.Verde
-                    )
-                }
-            }
-            HorizontalDivider(color = Color(0xFFEEEEEE))
-
+        Column(Modifier.fillMaxSize().padding(padding)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
@@ -194,7 +180,9 @@ fun PerfilScreen(
                     ItemMenu(
                         icone = Icons.Outlined.ListAlt,
                         titulo = "Meus anúncios",
-                        detalhe = "${perfil.anunciosPublicados} anúncios publicados",
+                        detalhe = perfil.anunciosPublicados?.let {
+                            if (it == 1) "1 anúncio publicado" else "$it anúncios publicados"
+                        },
                         onClick = {
                             // FLUXO (futuro): anúncios do usuário (editar, pausar, excluir)
                             //   navController.navigate(Routes.MeusAnuncios.route)
@@ -286,7 +274,7 @@ private fun CabecalhoUsuario(perfil: PerfilUsuario) {
                 }
             }
             Text(
-                "Membro desde ${perfil.membroDesde}",
+                perfil.membroDesde,
                 fontSize = 12.sp,
                 color = Color(0xFF777777)
             )
@@ -297,7 +285,7 @@ private fun CabecalhoUsuario(perfil: PerfilUsuario) {
                     modifier = Modifier.size(15.dp)
                 )
                 Text(
-                    "${perfil.nota} (${perfil.totalEntregas} entregas)",
+                    "Avaliação indisponível",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(start = 3.dp)

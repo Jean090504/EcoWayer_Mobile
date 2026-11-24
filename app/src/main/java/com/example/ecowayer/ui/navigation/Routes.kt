@@ -10,18 +10,26 @@ sealed class Routes(val route: String) {
 
     object Loja : Routes("loja")
     object BoasVindas : Routes("boas_vindas")
-    object EcoPontos : Routes("ecopontos")
+    object EcoPontos : Routes("ecopontos?pontoId={pontoId}") {
+        fun criar(pontoId: Int = 0) = "ecopontos?pontoId=$pontoId"
+    }
     object CriarAnuncio : Routes("criar_anuncio")
 
     object DetalhesAnuncio : Routes("detalhes_anuncio/{id}") {
         fun criar(id: Int) = "detalhes_anuncio/$id"
     }
 
+    object EditarAnuncio : Routes("editar_anuncio/{id}") {
+        fun criar(id: Int) = "editar_anuncio/$id"
+    }
+
     object RegistrarEntrega : Routes("registrar_entrega")
 
     object Carteira : Routes("carteira")
+    object TrocarPontos : Routes("trocar_pontos")
 
     object Configuracoes : Routes("configuracoes")
+    object DadosConta : Routes("dados_conta")
 
     object Perfil : Routes("perfil")
 
@@ -35,6 +43,10 @@ sealed class Routes(val route: String) {
 
     object Conversa : Routes("conversa/{id}") {
         fun criar(id: Int) = "conversa/$id"
+    }
+
+    object DenunciarMensagem : Routes("denunciar_mensagem/{mensagemId}") {
+        fun criar(id: Int) = "denunciar_mensagem/$id"
     }
 
     object DenunciarAnuncio : Routes("denunciar_anuncio/{id}") {

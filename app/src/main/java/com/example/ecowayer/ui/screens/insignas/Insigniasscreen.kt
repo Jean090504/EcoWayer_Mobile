@@ -26,16 +26,20 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.TrackChanges
 import androidx.compose.material.icons.outlined.WorkspacePremium
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -44,21 +48,16 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ecowayer.model.NivelImpactoApi
+import com.example.ecowayer.model.ResumoCarteiraApi
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
+import com.example.ecowayer.ui.screens.carteira.CarteiraViewModel
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
-
-/**
- * Modelos temporários. Quando a API estiver pronta, gere estas classes a partir
- * do JSON retornado e mova para a pasta data/model.
- */
-data class NivelImpacto(
-    val nome: String,              // ex.: "Sustentador"
-    val numero: Int,               // ex.: 4
-    val progresso: Float,          // 0f..1f
-    val textoProximoNivel: String  // ex.: "Próximo nível com mais 150 kg de resíduos evitados."
-)
+import java.text.NumberFormat
+import java.util.Locale
 
 data class Insignia(
     val id: Int,
@@ -77,23 +76,10 @@ fun InsigniasScreen(
     onQrCode: () -> Unit = {},
     onAbrirInsignia: (Insignia) -> Unit = {}
 ) {
-    // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
-    // Troque os dados abaixo por estados vindos de um InsigniasViewModel:
-    //
-    // val viewModel: InsigniasViewModel = viewModel()
-    // val nivel by viewModel.nivel.collectAsState()           // GET /usuarios/me/nivel
-    // val insignias by viewModel.insignias.collectAsState()   // GET /usuarios/me/insignias
-    //
-    // LaunchedEffect(Unit) { viewModel.carregar() }
-    //
-    // Trate também carregando e erro (CircularProgressIndicator / "Tentar de novo").
-    // ----------------------------------------------------------------------
-    val nivel = NivelImpacto(                                         // TODO API
-        nome = "Sustentador",
-        numero = 4,
-        progresso = 0.7f,
-        textoProximoNivel = "Próximo nível com mais 150 kg de resíduos evitados."
-    )
+    val carteiraViewModel: CarteiraViewModel? = if (LocalInspectionMode.current) null else viewModel()
+    val carteira = carteiraViewModel?.estado?.collectAsState()?.value
+    val resumo = carteira?.carteira?.resumo
+    val nivel = resumo?.nivel_atual
     val insignias = listOf(                                           // TODO API
         Insignia(1, "Pioneiro", true, cor = Color(0xFF4CAF50), icone = Icons.Outlined.WorkspacePremium),
         Insignia(
@@ -151,8 +137,23 @@ fun InsigniasScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Nível de impacto (ocupa a linha toda)
-                item(span = { GridItemSpan(maxLineSpan) }) { CardNivel(nivel) }
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    when {
+                        nivel != null -> CardNivel(nivel, resumo)
+                        carteira?.carregando == true -> {
+                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(Modifier.size(24.dp))
+                            }
+                        }
+                        carteira?.erro != null -> {
+                            Column {
+                                Text("Não foi possível carregar seu nível de impacto.")
+                                TextButton(onClick = { carteiraViewModel?.carregar() }) { Text("Tentar novamente") }
+                            }
+                        }
+                        else -> Text("Nível de impacto indisponível.")
+                    }
+                }
 
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
@@ -173,7 +174,7 @@ fun InsigniasScreen(
 }
 
 @Composable
-private fun CardNivel(nivel: NivelImpacto) {
+private fun CardNivel(nivel: NivelImpactoApi, resumo: ResumoCarteiraApi) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -194,24 +195,30 @@ private fun CardNivel(nivel: NivelImpacto) {
             Text("Nível ${nivel.numero}", fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
 
-        Box(
-            modifier = Modifier
-                .padding(vertical = 10.dp)
-                .fillMaxWidth()
-                .height(8.dp)
-                .clip(RoundedCornerShape(50))
-                .background(Color(0xFFE6E6E6))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(nivel.progresso.coerceIn(0f, 1f))
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(50))
-                    .background(EcoColors.Verde)
+        val proximo = resumo.proximo_nivel
+        if (proximo == null) {
+            Text("Você atingiu o nível máximo.", fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+        } else {
+            val unidade = proximo.unidade.trim()
+            val meta = NumberFormat.getNumberInstance(Locale.forLanguageTag("pt-BR")).format(proximo.meta)
+            Text(
+                "Próximo nível: ${proximo.nome} · Meta: $meta $unidade",
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 8.dp),
+                color = Color(0xFF555555)
             )
+            if (unidade.lowercase() in setOf("pt", "pts", "ponto", "pontos")) {
+                Box(
+                    modifier = Modifier.padding(top = 10.dp).fillMaxWidth().height(8.dp)
+                        .clip(RoundedCornerShape(50)).background(Color(0xFFE6E6E6))
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(resumo.progresso.coerceIn(0f, 1f)).fillMaxHeight()
+                            .background(EcoColors.Verde)
+                    )
+                }
+            }
         }
-
-        Text(nivel.textoProximoNivel, fontSize = 12.sp, color = Color(0xFF555555))
     }
 }
 

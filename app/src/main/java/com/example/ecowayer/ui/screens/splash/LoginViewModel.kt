@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ecowayer.model.LoginRequest
 import com.example.ecowayer.service.RetrofitFactory
-import com.example.ecowayer.service.SessionStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -35,8 +34,11 @@ class LoginViewModel : ViewModel() {
                 val corpo = resposta.body()
 
                 if (resposta.isSuccessful && corpo?.status == true && corpo.response?.usuario != null) {
-                    SessionStore.saveUser(corpo.response.usuario)
-                    _estado.value = LoginUiState(autenticado = true)
+                    _estado.value = if (RetrofitFactory.salvarSessao(corpo.response.usuario)) {
+                        LoginUiState(autenticado = true)
+                    } else {
+                        LoginUiState(erro = "O servidor não forneceu um cookie de sessão válido para a API.")
+                    }
                 } else {
                     _estado.value = LoginUiState(
                         erro = corpo?.message ?: "Não foi possível entrar. Tente novamente."

@@ -35,6 +35,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ecowayer.service.SessionStore
+import com.example.ecowayer.ui.components.ImagemRemota
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.theme.EcoColors
@@ -53,14 +55,17 @@ data class Conversa(
     val fotoUrl: String? = null
 )
 
-private fun ConversaApi.toUi() = Conversa(
-    id = id,
-    nome = nome_contato ?: contato?.nome ?: "Conversa #$id",
-    ultimaMensagem = ultima_mensagem.orEmpty().ifBlank { "Nenhuma mensagem ainda" },
-    tempo = data_ultima_mensagem.orEmpty(),
-    naoLidas = nao_lidas,
-    fotoUrl = contato?.foto
-)
+private fun ConversaApi.toUi(idUsuario: Int?): Conversa {
+    val participante = outroParticipante(idUsuario)
+    return Conversa(
+        id = id,
+        nome = participante.nome.ifBlank { "Conversa" },
+        ultimaMensagem = ultima_mensagem.orEmpty().ifBlank { "Nenhuma mensagem ainda" },
+        tempo = data_ultima_mensagem.orEmpty(),
+        naoLidas = nao_lidas,
+        fotoUrl = participante.foto
+    )
+}
 
 @Composable
 fun MensagensScreen(
@@ -71,7 +76,8 @@ fun MensagensScreen(
 ) {
     val viewModel: MensagensViewModel = viewModel()
     val estado by viewModel.estado.collectAsState()
-    val conversas = estado.conversas.map { it.toUi() }
+    val idUsuario = SessionStore.currentUser()?.id
+    val conversas = estado.conversas.map { it.toUi(idUsuario) }
 
     Scaffold(
         containerColor = Color.White,
@@ -157,22 +163,11 @@ private fun ItemConversa(conversa: Conversa, onClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // FOTO DO CONTATO ---------------------------------------------------
-        // Quando a API devolver a URL (Coil: io.coil-kt:coil-compose):
-        //
-        // AsyncImage(
-        //     model = conversa.fotoUrl,
-        //     contentDescription = conversa.nome,
-        //     contentScale = ContentScale.Crop,
-        //     modifier = Modifier.size(52.dp).clip(CircleShape)
-        // )
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFE0E0E0))
+        ImagemRemota(
+            url = conversa.fotoUrl,
+            descricao = conversa.nome,
+            modifier = Modifier.size(52.dp).clip(CircleShape)
         )
-        // -------------------------------------------------------------------
 
         Column(
             modifier = Modifier

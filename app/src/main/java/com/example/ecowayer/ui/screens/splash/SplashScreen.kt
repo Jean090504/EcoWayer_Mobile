@@ -46,14 +46,15 @@ private const val SPLASH_DURATION_MS = 4000
 fun SplashScreen(
     onEntrar: () -> Unit,
     onCriarConta: () -> Unit,
-    onEsqueciSenha: () -> Unit
+    onEsqueciSenha: () -> Unit,
+    sessaoRecusada: Boolean = false
 ) {
     val loginViewModel: LoginViewModel = viewModel()
     val loginState by loginViewModel.estado.collectAsState()
     val logoAlpha = remember { Animatable(0f) }
     val logoScale = remember { Animatable(0.6f) }
     val bgScale = remember { Animatable(1f) }
-    var mostrarLogin by remember { mutableStateOf(false) }
+    var mostrarLogin by remember { mutableStateOf(sessaoRecusada) }
 
     LaunchedEffect(loginState.autenticado) {
         if (loginState.autenticado) {
@@ -132,7 +133,7 @@ fun SplashScreen(
                 onCriarConta = onCriarConta,
                 onEsqueciSenha = onEsqueciSenha,
                 carregando = loginState.carregando,
-                erro = loginState.erro,
+                erro = loginState.erro ?: "Sua sessão expirou ou foi recusada. Entre novamente.".takeIf { sessaoRecusada },
                 modifier = Modifier.fillMaxSize()
             )
         }

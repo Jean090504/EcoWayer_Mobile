@@ -1,6 +1,7 @@
 package com.example.ecowayer.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,7 +25,6 @@ import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.service.RetrofitFactory
 import com.example.ecowayer.service.EcoWayerRepository
 import com.example.ecowayer.service.SessionStore
-import com.example.ecowayer.model.DenunciaRequest
 import com.example.ecowayer.model.CadastroDraft
 import com.example.ecowayer.model.EnderecoCadastroRequest
 import com.example.ecowayer.model.EnderecoDraft
@@ -35,10 +35,12 @@ import com.example.ecowayer.ui.screens.CadastroScreen.CadastroScreen
 import com.example.ecowayer.ui.screens.boasvindas.BoasVindasScreen
 import com.example.ecowayer.ui.screens.carteira.CarteiraScreen
 import com.example.ecowayer.ui.screens.configuracoes.ConfiguracoesScreen
+import com.example.ecowayer.ui.screens.configuracoes.DadosContaScreen
 import com.example.ecowayer.ui.screens.conversa.ConversaScreen
 import com.example.ecowayer.ui.screens.criarAnuncio.CriarAnuncioScreen
-import com.example.ecowayer.ui.screens.denuncia.DenunciarAnuncioScreen
+import com.example.ecowayer.ui.screens.denuncia.DenunciarScreen
 import com.example.ecowayer.ui.screens.detalhes.DetalhesAnuncioScreen
+import com.example.ecowayer.ui.screens.detalhes.EditarAnuncioScreen
 import com.example.ecowayer.ui.screens.ecopontos.EcoPontosScreen
 import com.example.ecowayer.ui.screens.endereco.EnderecoScreen
 import com.example.ecowayer.ui.screens.entrega.RegistrarEntregaScreen
@@ -50,6 +52,7 @@ import com.example.ecowayer.ui.screens.meusanuncios.MeusAnunciosScreen
 import com.example.ecowayer.ui.screens.notificacoes.NotificacoesScreen
 import com.example.ecowayer.ui.screens.perfil.PerfilScreen
 import com.example.ecowayer.ui.screens.splash.SplashScreen
+import com.example.ecowayer.ui.screens.trocapontos.TrocarPontosScreen
 import com.example.ecowayer.ui.screens.vereficacao.VerificacaoEmailScreen
 import com.example.ecowayer.ui.screens.vereficacao.VerificacaoNumeroScreen
 
@@ -61,8 +64,13 @@ private fun NavController.navegarPelaBarra(destino: DestinoBarra) {
         DestinoBarra.Perfil -> Routes.Perfil.route
     }
 
+    val atual = currentDestination?.route
+    if (atual == rota) return
+    val telasDaBarra = listOf(Routes.Home, Routes.Loja, Routes.Carteira, Routes.Perfil)
+    val saindoDaAba = telasDaBarra.any { it.route == atual }
+    if (!saindoDaAba && popBackStack(rota, inclusive = false)) return
     navigate(rota) {
-        popUpTo(Routes.Home.route) { saveState = true }
+        popUpTo(Routes.Home.route) { saveState = saindoDaAba }
         launchSingleTop = true
         restoreState = true
     }
@@ -94,9 +102,8 @@ fun AppNavGraph() {
     var cadastroErro by remember { mutableStateOf<String?>(null) }
     var publicando by remember { mutableStateOf(false) }
     var erroPublicacao by remember { mutableStateOf<String?>(null) }
-    var enviandoDenuncia by remember { mutableStateOf(false) }
-    var erroDenuncia by remember { mutableStateOf<String?>(null) }
-    val modoAutoLogin = BuildConfig.DEBUG && BuildConfig.DEV_AUTO_LOGIN
+    val sessaoRecusada by RetrofitFactory.sessaoRecusada.collectAsState()
+    val modoAutoLogin = remember { BuildConfig.DEBUG && BuildConfig.DEV_AUTO_LOGIN && !sessaoRecusada }
     var autoLoginPronto by remember { mutableStateOf(!modoAutoLogin || SessionStore.isLoggedIn()) }
     var autoLoginFalhou by remember { mutableStateOf(false) }
 
@@ -113,7 +120,7 @@ fun AppNavGraph() {
                 if (!resposta.isSuccessful || resposta.body()?.status != true || usuario == null) {
                     autoLoginFalhou = true
                 } else {
-                    SessionStore.saveUser(usuario)
+                    autoLoginFalhou = !RetrofitFactory.salvarSessao(usuario)
                 }
             } catch (_: Exception) {
                 autoLoginFalhou = true
@@ -130,12 +137,27 @@ fun AppNavGraph() {
         return
     }
 
+    val destinoInicial = remember {
+        if (SessionStore.isLoggedIn() && !autoLoginFalhou) Routes.Home.route else Routes.Splash.route
+    }
+    LaunchedEffect(sessaoRecusada) {
+        if (sessaoRecusada && navController.currentDestination?.route != Routes.Splash.route) {
+            listOf(Routes.Home, Routes.Loja, Routes.Carteira, Routes.Perfil).forEach {
+                navController.clearBackStack(it.route)
+            }
+            navController.navigate(Routes.Splash.route) {
+                popUpTo(navController.graph.id) { inclusive = true }
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
-        startDestination = if (SessionStore.isLoggedIn() && !autoLoginFalhou) Routes.Home.route else Routes.Splash.route
+        startDestination = destinoInicial
     ) {
         composable(Routes.Splash.route) {
             SplashScreen(
+                sessaoRecusada = sessaoRecusada,
                 onEntrar = {
                     navController.navigate(Routes.Home.route) {
                         popUpTo(Routes.Splash.route) { inclusive = true }
@@ -224,7 +246,10 @@ fun AppNavGraph() {
                             val login = RetrofitFactory.getAuthService()
                                 .login(com.example.ecowayer.model.LoginRequest(dados.email, dados.senha))
                                 .awaitResponse()
-                            if (!login.isSuccessful || login.body()?.status != true) {
+                            val usuario = login.body()?.response?.usuario
+                            if (!login.isSuccessful || login.body()?.status != true ||
+                                usuario == null || !RetrofitFactory.salvarSessao(usuario)
+                            ) {
                                 error("Conta criada. Faça login para entrar no aplicativo.")
                             }
 
@@ -255,14 +280,24 @@ fun AppNavGraph() {
             HomeScreen(
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) },
                 onQrCode = { navController.abrirRegistrarEntrega() },
-                onBuscarEcoPontos = { navController.navigate(Routes.EcoPontos.route) },
+                onBuscarEcoPontos = { navController.navigate(Routes.EcoPontos.criar()) },
                 onVerExtrato = { navController.navegarPelaBarra(DestinoBarra.Carteira) },
-                onTrocarPontos = { navController.navegarPelaBarra(DestinoBarra.Carteira) }
+                onTrocarPontos = { navController.navigate(Routes.TrocarPontos.route) },
+                onIrParaEcoPonto = { ponto ->
+                    navController.navigate(Routes.EcoPontos.criar(ponto.id))
+                }
             )
         }
 
-        composable(Routes.EcoPontos.route) {
+        composable(
+            route = Routes.EcoPontos.route,
+            arguments = listOf(navArgument("pontoId") {
+                type = NavType.IntType
+                defaultValue = 0
+            })
+        ) { entrada ->
             EcoPontosScreen(
+                pontoInicialId = entrada.arguments?.getInt("pontoId") ?: 0,
                 onVoltar = { navController.popBackStack() },
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) },
                 onQrCode = { navController.abrirRegistrarEntrega() }
@@ -337,21 +372,38 @@ fun AppNavGraph() {
                 onBack = { navController.popBackStack() },
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) },
                 onQrCode = { navController.abrirRegistrarEntrega() },
-                onDenunciar = {
-                    navController.navigate(
-                        Routes.DenunciarAnuncio.criar(entrada.arguments?.getInt("id") ?: 0)
-                    )
-                }
+                onDenunciar = { id -> navController.navigate(Routes.DenunciarAnuncio.criar(id)) },
+                onEditar = { id -> navController.navigate(Routes.EditarAnuncio.criar(id)) },
+                onAbrirConversa = { id -> navController.navigate(Routes.Conversa.criar(id)) }
             )
         }
 
 
 
+        composable(
+            route = Routes.EditarAnuncio.route,
+            arguments = listOf(navArgument("id") { type = NavType.IntType })
+        ) { entrada ->
+            EditarAnuncioScreen(
+                anuncioId = entrada.arguments?.getInt("id") ?: 0,
+                onBack = { navController.popBackStack() },
+                onNavegar = { destino -> navController.navegarPelaBarra(destino) },
+                onQrCode = { navController.abrirRegistrarEntrega() }
+            )
+        }
+
         composable(Routes.RegistrarEntrega.route) {
             RegistrarEntregaScreen(
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) },
-                onQrCode = { /* já está nesta tela */ },
-                onConcluido = { navController.popBackStack() }
+                onQrCode = { /* já está nesta tela */ }
+            )
+        }
+
+        composable(Routes.TrocarPontos.route) {
+            TrocarPontosScreen(
+                onVoltar = { navController.popBackStack() },
+                onNavegar = { destino -> navController.navegarPelaBarra(destino) },
+                onQrCode = { navController.abrirRegistrarEntrega() }
             )
         }
 
@@ -385,7 +437,25 @@ fun AppNavGraph() {
             ConfiguracoesScreen(
                 onBack = { navController.popBackStack() },
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) },
-                onQrCode = { navController.abrirRegistrarEntrega() }
+                onQrCode = { navController.abrirRegistrarEntrega() },
+                onDadosConta = { navController.navigate(Routes.DadosConta.route) }
+            )
+        }
+
+        composable(Routes.DadosConta.route) {
+            DadosContaScreen(
+                onBack = { navController.popBackStack() },
+                onNavegar = { destino -> navController.navegarPelaBarra(destino) },
+                onQrCode = { navController.abrirRegistrarEntrega() },
+                onEncerrarSessao = {
+                    RetrofitFactory.limparSessao()
+                    listOf(Routes.Home, Routes.Loja, Routes.Carteira, Routes.Perfil).forEach {
+                        navController.clearBackStack(it.route)
+                    }
+                    navController.navigate(Routes.Splash.route) {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                    }
+                }
             )
         }
 
@@ -436,48 +506,32 @@ fun AppNavGraph() {
             ConversaScreen(
                 conversaId = entrada.arguments?.getInt("id") ?: 0,
                 onBack = { navController.popBackStack() },
+                onDenunciarMensagem = { id ->
+                    navController.navigate(Routes.DenunciarMensagem.criar(id))
+                }
+            )
+        }
+
+        composable(
+            route = Routes.DenunciarMensagem.route,
+            arguments = listOf(navArgument("mensagemId") { type = NavType.IntType })
+        ) {
+            DenunciarScreen(
+                onBack = { navController.popBackStack() },
+                onNavegar = { destino -> navController.navegarPelaBarra(destino) },
+                onQrCode = { navController.abrirRegistrarEntrega() }
             )
         }
 
         composable(
             route = Routes.DenunciarAnuncio.route,
             arguments = listOf(navArgument("id") { type = NavType.IntType })
-        ) { entrada ->
-            DenunciarAnuncioScreen(
-                anuncioId = entrada.arguments?.getInt("id") ?: 0,
+        ) {
+            DenunciarScreen(
                 onBack = { navController.popBackStack() },
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) },
-                onQrCode = { navController.abrirRegistrarEntrega() },
-                enviando = enviandoDenuncia,
-                erro = erroDenuncia,
-                onEnviar = { motivo, detalhes ->
-                    scope.launch {
-                        enviandoDenuncia = true
-                        erroDenuncia = null
-                        try {
-                            val usuario = SessionStore.currentUser() ?: error("Faça login para denunciar um anúncio.")
-                            val tipos = RetrofitFactory.getEcoWayerApi().listarTiposDenuncia()
-                            check(tipos.isSuccessful) { "Não foi possível carregar os motivos de denúncia." }
-                            val tipo = tipos.body()?.response?.tipo_denuncias.orEmpty()
-                                .firstOrNull { it.tipo.equals(motivo.rotulo, true) || it.nome.equals(motivo.rotulo, true) }
-                                ?: tipos.body()?.response?.tipo_denuncias.orEmpty().firstOrNull()
-                                ?: error("Nenhum tipo de denúncia está cadastrado.")
-                            val idAnuncio = entrada.arguments?.getInt("id") ?: 0
-                            val descricao = detalhes.ifBlank { "Denúncia do anúncio $idAnuncio: ${motivo.rotulo}." }
-                            val resposta = RetrofitFactory.getEcoWayerApi().criarDenuncia(
-                                DenunciaRequest(descricao, tipo.id, usuario.id)
-                            )
-                            check(resposta.isSuccessful) { "Não foi possível registrar a denúncia." }
-                            navController.popBackStack()
-                        } catch (erro: Exception) {
-                            erroDenuncia = erro.message ?: "Não foi possível registrar a denúncia."
-                        } finally {
-                            enviandoDenuncia = false
-                        }
-                    }
-                }
+                onQrCode = { navController.abrirRegistrarEntrega() }
             )
         }
     }
-
 }
