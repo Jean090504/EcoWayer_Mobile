@@ -1,3 +1,7 @@
+# Ajuste sdk.dir para o caminho do Android SDK da máquina local.
+# Exemplo macOS: sdk.dir=/Users/SEU_USUARIO/Library/Android/sdk
+# Exemplo Windows: sdk.dir=C:/Users/SEU_USUARIO/AppData/Local/Android/Sdk
+sdk.dir=
 GOOGLE_MAPS_API_KEY=
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_UPLOAD_PRESET=
