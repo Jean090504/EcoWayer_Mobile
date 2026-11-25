@@ -12,9 +12,12 @@ O backend precisa aceitar a conexão na interface da rede, o firewall precisa
 liberar a porta e o aparelho deve estar na mesma rede. O build local permite
 HTTP para desenvolvimento; produção deve usar HTTPS.
 
-As sessões usam o cookie `ecowayer_token` emitido pelo backend e são mantidas
-no dispositivo para que o usuário não seja desconectado ao fechar o aplicativo.
-O logout remove o cookie e os dados locais da sessão.
+As sessões usam o cookie `ecowayer_token` emitido pelo backend. O cookie e os
+dados básicos do usuário são mantidos em preferências privadas e excluídos do
+backup do Android. O logout remove o cookie e os dados locais da sessão.
+
+O manifesto de debug permite HTTP para o backend local. Builds de release
+exigem `-PAPI_BASE_URL=https://...` e não permitem tráfego cleartext.
 
 Integrações atualmente ligadas à API:
 

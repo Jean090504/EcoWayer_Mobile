@@ -29,10 +29,8 @@ backend neste projeto para confirmar todos os requisitos de negócio.
 - Há um `EcoPontosViewModel` para carregar pontos de coleta, mas não existe uma
   camada de dados/repositório completa, injeção de dependência ou uma separação
   formal de domínio. Muitas telas mantêm dados diretamente em `remember`.
-- Existe um segundo `AppNavGraph` em
-  `ui/components/Appnavgraph.kt`. O `MainActivity` usa o grafo de
-  `ui/navigation`; o grafo em `ui/components` aparenta ser legado ou não
-  utilizado.
+- O grafo ativo e único é `ui/navigation/AppNavGraph.kt`, usado pela
+  `MainActivity`.
 
 ## Tecnologias e configuração
 
@@ -111,8 +109,9 @@ botão central abre Registro de entrega. Também estão registradas as rotas:
 
 O login chama `POST /user/usuario/login` através do Retrofit e só navega para
 Home após resposta de sucesso. O backend devolve a sessão em cookie HttpOnly;
-o mobile usa um `CookieJar` em memória compartilhado entre as chamadas. Essa
-sessão ainda não é persistida após encerrar o aplicativo. Cadastro,
+o mobile usa um `CookieJar` compartilhado entre as chamadas e persiste o cookie
+e os dados básicos do usuário em `SharedPreferences`. Esses arquivos são
+excluídos de backup. Cadastro,
 verificações e endereço avançam entre telas sem chamadas de backend
 confirmadas. Recuperação de senha é apenas um TODO.
 
@@ -162,19 +161,18 @@ endpoints a partir deste projeto.
 
 ## Banco de dados e armazenamento local
 
-Não foram encontradas dependências ou implementações de Room, SQLite,
-DataStore, SharedPreferences ou outro banco/armazenamento persistente. Os
-estados das telas são, em geral, locais e mantidos com `remember`; portanto,
-não há persistência de sessão, token, usuário, anúncios, mensagens ou carteira
-identificada no código.
+Não foram encontradas dependências ou implementações de Room, SQLite ou
+DataStore. A sessão HTTP e os dados básicos do usuário são persistidos em
+`SharedPreferences`; os demais estados das telas são, em geral, locais e
+mantidos com `remember`.
 
 ## Permissões e configurações do Manifest
 
 `AndroidManifest.xml` declara Internet, localização fina e aproximada e câmera;
 a câmera é uma feature opcional. A Activity principal é exportada e possui o
-intent-filter de launcher. `usesCleartextTraffic="true"` está habilitado para
-permitir a URL HTTP local, mas também permite tráfego sem TLS e deve ser
-reavaliado para builds de produção. A permissão `INTERNET` aparece duplicada.
+intent-filter de launcher. Tráfego HTTP é permitido apenas no manifesto de
+debug; builds de release exigem uma URL HTTPS definida por `API_BASE_URL`.
+As preferências de sessão são excluídas dos backups Android.
 
 ## Como executar no Android Studio
 
@@ -252,13 +250,14 @@ Ela terminou com sucesso no estado atual.
 - A autenticação do login está conectada, mas a maior parte das operações de
   negócio ainda não está conectada à API; várias telas usam mocks e estados
   locais.
-- Não existe persistência local nem gerenciamento de sessão/token.
+- A sessão é persistida localmente em preferências privadas, com exclusão das
+  regras de backup Android.
 - O leitor CameraX/ML Kit está preparado por dependências, mas não implementado
   no fluxo de registro de entrega.
 - O token Mapbox não possui configuração documentada no repositório.
-- O Manifest repete a permissão Internet e permite cleartext globalmente.
-- Existem dois grafos de navegação, um aparentemente legado, e inconsistências
-  entre caminhos de arquivos, nomes e pacotes.
+- O manifesto de debug permite cleartext apenas para o backend local; release
+  exige uma URL HTTPS.
+- Ainda há inconsistências entre caminhos de arquivos, nomes e pacotes.
 - O ViewModel de EcoPontos está em `ui/screens/ecopontos`, mas declara o pacote
   `com.example.ecowayer.ui.ecopontos`; compila, porém reduz a clareza da
   organização.

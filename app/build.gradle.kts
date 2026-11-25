@@ -5,6 +5,19 @@ plugins {
 
 import java.util.Properties
 
+abstract class ValidateReleaseApiBaseUrl : org.gradle.api.DefaultTask() {
+    @get:org.gradle.api.tasks.Input
+    abstract val apiBaseUrl: org.gradle.api.provider.Property<String>
+
+    @org.gradle.api.tasks.TaskAction
+    fun validate() {
+        val url = apiBaseUrl.get()
+        check(url.startsWith("https://")) {
+            "Builds de release exigem -PAPI_BASE_URL com uma URL HTTPS de produção."
+        }
+    }
+}
+
 val localProperties = Properties()
 rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use {
     localProperties.load(it)
@@ -23,6 +36,20 @@ android {
     }
 
     buildTypes {
+        debug {
+            val devAutoLogin = providers.gradleProperty("DEV_AUTO_LOGIN")
+                .orElse(localProperties.getProperty("DEV_AUTO_LOGIN", "false"))
+                .get()
+            val devAutoLoginEmail = providers.gradleProperty("DEV_AUTO_LOGIN_EMAIL")
+                .orElse(localProperties.getProperty("DEV_AUTO_LOGIN_EMAIL", ""))
+                .get()
+            val devAutoLoginPassword = providers.gradleProperty("DEV_AUTO_LOGIN_PASSWORD")
+                .orElse(localProperties.getProperty("DEV_AUTO_LOGIN_PASSWORD", ""))
+                .get()
+            buildConfigField("Boolean", "DEV_AUTO_LOGIN", devAutoLogin.toBoolean().toString())
+            buildConfigField("String", "DEV_AUTO_LOGIN_EMAIL", "\"${devAutoLoginEmail.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+            buildConfigField("String", "DEV_AUTO_LOGIN_PASSWORD", "\"${devAutoLoginPassword.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        }
         release {
             optimization {
                 enable = true
@@ -46,18 +73,9 @@ android {
             .orElse("http://10.0.2.2:3000/meraki/ecowayer/")
             .get()
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
-        val devAutoLogin = providers.gradleProperty("DEV_AUTO_LOGIN")
-            .orElse(localProperties.getProperty("DEV_AUTO_LOGIN", "false"))
-            .get()
-        val devAutoLoginEmail = providers.gradleProperty("DEV_AUTO_LOGIN_EMAIL")
-            .orElse(localProperties.getProperty("DEV_AUTO_LOGIN_EMAIL", ""))
-            .get()
-        val devAutoLoginPassword = providers.gradleProperty("DEV_AUTO_LOGIN_PASSWORD")
-            .orElse(localProperties.getProperty("DEV_AUTO_LOGIN_PASSWORD", ""))
-            .get()
-        buildConfigField("Boolean", "DEV_AUTO_LOGIN", devAutoLogin.toBoolean().toString())
-        buildConfigField("String", "DEV_AUTO_LOGIN_EMAIL", "\"${devAutoLoginEmail.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
-        buildConfigField("String", "DEV_AUTO_LOGIN_PASSWORD", "\"${devAutoLoginPassword.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("Boolean", "DEV_AUTO_LOGIN", "false")
+        buildConfigField("String", "DEV_AUTO_LOGIN_EMAIL", "\"\"")
+        buildConfigField("String", "DEV_AUTO_LOGIN_PASSWORD", "\"\"")
         // Estes valores públicos identificam o upload sem assinatura usado também pelo frontend.
         listOf("CLOUDINARY_CLOUD_NAME", "CLOUDINARY_UPLOAD_PRESET").forEach { nome ->
             val valor = providers.gradleProperty(nome).orElse(localProperties.getProperty(nome, "")).get()
@@ -70,6 +88,13 @@ android {
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey
         buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
     }
+}
+
+val validateReleaseApiBaseUrl = tasks.register<ValidateReleaseApiBaseUrl>("validateReleaseApiBaseUrl") {
+    apiBaseUrl.set(providers.gradleProperty("API_BASE_URL").orElse(""))
+}
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    dependsOn(validateReleaseApiBaseUrl)
 }
 
 dependencies {
