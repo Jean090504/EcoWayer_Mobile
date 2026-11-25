@@ -70,7 +70,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         val apiBaseUrl = providers.gradleProperty("API_BASE_URL")
-            .orElse("http://10.0.2.2:3000/meraki/ecowayer/")
+            .orElse(localProperties.getProperty("API_BASE_URL", "http://10.0.2.2:3000/meraki/ecowayer/"))
             .get()
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("Boolean", "DEV_AUTO_LOGIN", "false")
@@ -91,7 +91,7 @@ android {
 }
 
 val validateReleaseApiBaseUrl = tasks.register<ValidateReleaseApiBaseUrl>("validateReleaseApiBaseUrl") {
-    apiBaseUrl.set(providers.gradleProperty("API_BASE_URL").orElse(""))
+    apiBaseUrl.set(providers.gradleProperty("API_BASE_URL").orElse(localProperties.getProperty("API_BASE_URL", "")))
 }
 tasks.matching { it.name == "preReleaseBuild" }.configureEach {
     dependsOn(validateReleaseApiBaseUrl)
