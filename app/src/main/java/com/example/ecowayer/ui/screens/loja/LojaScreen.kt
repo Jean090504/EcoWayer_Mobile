@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -115,8 +114,7 @@ fun LojaScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .statusBarsPadding(),
+                .padding(padding),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -168,17 +166,38 @@ fun LojaScreen(
             }
 
             item {
-                if (estado.carregando) Text("Carregando anúncios...", color = Color.Gray)
+                if (estado.carregando) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = EcoColors.Roxo,
+                            strokeWidth = 2.dp
+                        )
+                        Text("Carregando anúncios…", modifier = Modifier.padding(start = 10.dp), color = Color.Gray)
+                    }
+                } else if (estado.erro == null && anuncios.isEmpty()) {
+                    Text(
+                        "Nenhum anúncio nesta categoria ainda.",
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                        color = Color.Gray
+                    )
+                }
                 estado.erro?.let { erro ->
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(erro, color = Color(0xFFB3261E))
+                        Text("Não foi possível carregar os anúncios.", color = Color(0xFFB3261E))
                         Text("Tentar novamente", color = EcoColors.Roxo, modifier = Modifier.clickable { viewModel.carregar() })
                     }
                 }
             }
             // Anúncios reais da API
-            items(anuncios, key = { it.id }) { anuncio ->
-                CardAnuncio(anuncio, onClick = { onAbrirAnuncio(anuncio) })
+            if (estado.erro == null) {
+                items(anuncios, key = { it.id }) { anuncio ->
+                    CardAnuncio(anuncio, onClick = { onAbrirAnuncio(anuncio) })
+                }
             }
         }
     }
