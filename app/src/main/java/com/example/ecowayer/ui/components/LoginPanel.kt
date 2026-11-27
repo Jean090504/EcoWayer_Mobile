@@ -38,6 +38,7 @@ fun LoginPanel(
     onEntrar: (email: String, senha: String) -> Unit,
     onCriarConta: () -> Unit,
     onEsqueciSenha: () -> Unit,
+    onLoginGoogle: () -> Unit = {},
     carregando: Boolean = false,
     erro: String? = null,
     modifier: Modifier = Modifier
@@ -130,6 +131,19 @@ fun LoginPanel(
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        Button(
+            onClick = { if (!carregando) onLoginGoogle() },
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF3F3F3), contentColor = Color(0xFF202124)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+        ) {
+            Text("Entrar com Google", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         }
 
         Row(

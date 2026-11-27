@@ -14,6 +14,10 @@ data class LoginRequest(
     val senha: String
 )
 
+data class GoogleLoginRequest(
+    val credential: String
+)
+
 data class LoginResponse(
     val usuario: Usuario? = null
 )

@@ -100,6 +100,10 @@ android {
             .get()
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey
         buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+        val googleServerClientId = providers.gradleProperty("GOOGLE_SERVER_CLIENT_ID")
+            .orElse(localProperties.getProperty("GOOGLE_SERVER_CLIENT_ID", ""))
+            .get()
+        buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"${googleServerClientId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
 }
 
@@ -157,4 +161,5 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
 }
