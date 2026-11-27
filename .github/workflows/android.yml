@@ -1,0 +1,59 @@
+name: Verificar e gerar Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - run: chmod +x gradlew && ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon
+
+  gerar-release:
+    if: vars.ANDROID_RELEASE_ENABLED == 'true'
+    needs: verificar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Preparar chave de upload
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_B64 }}
+        run: printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/ecowayer-upload.jks"
+      - name: Gerar AAB assinado
+        env:
+          ECOWAYER_UPLOAD_KEYSTORE: ${{ runner.temp }}/ecowayer-upload.jks
+          ECOWAYER_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+          ECOWAYER_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ECOWAYER_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:bundleRelease --no-daemon \
+            -PAPI_BASE_URL="${{ vars.ANDROID_API_BASE_URL }}" \
+            -PGOOGLE_MAPS_API_KEY="${{ vars.ANDROID_GOOGLE_MAPS_API_KEY }}" \
+            -PCLOUDINARY_CLOUD_NAME="${{ vars.ANDROID_CLOUDINARY_CLOUD_NAME }}" \
+            -PCLOUDINARY_UPLOAD_PRESET="${{ vars.ANDROID_CLOUDINARY_UPLOAD_PRESET }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ecowayer-release-aab
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error

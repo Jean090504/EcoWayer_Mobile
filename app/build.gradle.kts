@@ -35,6 +35,18 @@ android {
         version = release(36)
     }
 
+    val uploadKeyStore = providers.environmentVariable("ECOWAYER_UPLOAD_KEYSTORE").orNull
+    if (!uploadKeyStore.isNullOrBlank()) {
+        signingConfigs {
+            create("production") {
+                storeFile = file(uploadKeyStore)
+                storePassword = providers.environmentVariable("ECOWAYER_UPLOAD_STORE_PASSWORD").get()
+                keyAlias = providers.environmentVariable("ECOWAYER_UPLOAD_KEY_ALIAS").get()
+                keyPassword = providers.environmentVariable("ECOWAYER_UPLOAD_KEY_PASSWORD").get()
+            }
+        }
+    }
+
     buildTypes {
         debug {
             val devAutoLogin = providers.gradleProperty("DEV_AUTO_LOGIN")
@@ -51,6 +63,7 @@ android {
             buildConfigField("String", "DEV_AUTO_LOGIN_PASSWORD", "\"${devAutoLoginPassword.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         }
         release {
+            if (!uploadKeyStore.isNullOrBlank()) signingConfig = signingConfigs.getByName("production")
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
