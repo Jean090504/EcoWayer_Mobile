@@ -25,7 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -53,8 +52,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ecowayer.model.MensagemApi
 import com.example.ecowayer.service.SessionStore
 import com.example.ecowayer.ui.components.ImagemRemota
-import com.example.ecowayer.ui.components.QrCodeDialog
-import com.example.ecowayer.ui.components.VoucherQr
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
 import kotlinx.coroutines.CancellationException
@@ -100,9 +97,6 @@ fun ConversaScreen(
     LaunchedEffect(linhas.firstOrNull()?.id) {
         if (linhas.isNotEmpty()) estadoLista.scrollToItem(0)
     }
-
-    var mostrarQr by remember { mutableStateOf(false) }
-    var voucher by remember { mutableStateOf<VoucherQr?>(null) }
 
     fun enviar() {
         val conteudo = texto.trim()
@@ -156,13 +150,6 @@ fun ConversaScreen(
                 Text(statusContato, fontSize = 12.sp, color = Color(0xFF555555))
             }
 
-            IconButton(onClick = { mostrarQr = true }) {
-                Icon(
-                    Icons.Outlined.QrCodeScanner,
-                    contentDescription = "Gerar QR Code",
-                    tint = EcoColors.Verde
-                )
-            }
         }
 
         estado.erro?.let { erro ->
@@ -260,24 +247,6 @@ fun ConversaScreen(
         }
     }
 
-    // Popup do QR Code
-    if (mostrarQr) {
-        QrCodeDialog(
-            voucher = voucher,
-            onGerar = {
-                // INTEGRAÇÃO BACK-END (futuro): POST /conversas/{id}/voucher
-                voucher = VoucherQr(
-                    codigo = "VERDE-8371-ECO",      // TODO API
-                    validoAte = "15/05/2026",       // TODO API
-                    conteudoQr = "VERDE-8371-ECO"   // TODO API
-                )
-            },
-            onFechar = {
-                mostrarQr = false
-                voucher = null
-            }
-        )
-    }
 }
 
 @Composable

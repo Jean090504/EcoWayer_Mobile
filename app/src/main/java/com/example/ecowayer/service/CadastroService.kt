@@ -10,7 +10,22 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 
+data class DesafioContatoResponse(val desafio: String = "", val message: String? = null)
+data class ConfirmacaoContatoResponse(val confirmado: Boolean = false, val message: String? = null)
+data class ContatoErro(val message: String? = null)
+
 interface CadastroService {
+    @POST("user/usuario/verificacao/iniciar")
+    suspend fun iniciarVerificacao(@Body body: Map<String, String>): retrofit2.Response<DesafioContatoResponse>
+
+    @POST("user/usuario/verificacao/confirmar")
+    suspend fun confirmarVerificacao(@Body body: Map<String, String>): retrofit2.Response<ConfirmacaoContatoResponse>
+
+    @POST("user/usuario/verificacao/reenviar")
+    suspend fun reenviarVerificacao(@Body body: Map<String, String>): retrofit2.Response<DesafioContatoResponse>
+
+    @POST("user/usuario/recuperar-senha")
+    suspend fun recuperarSenha(@Body body: Map<String, String>): retrofit2.Response<ConfirmacaoContatoResponse>
     @GET("user/genero")
     suspend fun listarGeneros(): ApiResponse<GeneroLista>
 

@@ -85,7 +85,9 @@ data class UsuarioCadastroRequest(
     val email: String,
     val telefone: String,
     val senha: String,
-    val id_endereco: Int
+    val id_endereco: Int,
+    val desafio_email: String,
+    val desafio_telefone: String
 )
 
 data class PontoColetaLista(

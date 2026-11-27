@@ -3,6 +3,7 @@ package com.example.ecowayer.ui.navigation
 sealed class Routes(val route: String) {
     object Splash : Routes("splash")
     object Home : Routes("home")
+    object AssistenteEco : Routes("assistente_eco")
     object Cadastro : Routes("cadastro")
     object VerificacaoNumero : Routes("verificacao_numero")
     object VerificacaoEmail : Routes("verificacao_email")
@@ -24,6 +25,7 @@ sealed class Routes(val route: String) {
     }
 
     object RegistrarEntrega : Routes("registrar_entrega")
+    object MeusPedidos : Routes("meus_pedidos")
 
     object Carteira : Routes("carteira")
     object ExtratoPontos : Routes("extrato_pontos")

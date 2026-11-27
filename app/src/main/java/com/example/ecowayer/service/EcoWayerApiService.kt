@@ -17,6 +17,27 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface EcoWayerApiService {
+    @POST("user/ia/assistant-chat")
+    suspend fun conversarEco(@Body body: PerguntaEco): Response<RespostaEco>
+
+    @POST("user/pagamento/teste/preferencia")
+    suspend fun iniciarCompraTeste(@Body body: Map<String, Int>): Response<PreferenciaPedidoResponse>
+
+    @GET("user/pedidos")
+    suspend fun listarPedidos(): Response<PedidosResponse>
+
+    @POST("user/pedidos/{id}/atualizar")
+    suspend fun atualizarPedido(@Path("id") id: String): Response<PedidoResponse>
+
+    @POST("user/pedidos/{id}/codigo")
+    suspend fun gerarCodigoPedido(@Path("id") id: String): Response<CodigoPedidoResponse>
+
+    @POST("user/pedidos/{id}/problema")
+    suspend fun relatarProblemaPedido(@Path("id") id: String, @Body body: Map<String, String>): Response<PedidoConfirmacaoResponse>
+
+    @POST("user/pedidos/{id}/confirmar")
+    suspend fun confirmarPedido(@Path("id") id: String, @Body body: Map<String, String>): Response<PedidoConfirmacaoResponse>
+
     @POST("user/mapa/geocodificar")
     suspend fun geocodificar(@Body body: GeocodificarRequest): Response<ApiResponse<LocalizacaoEncontrada>>
 
@@ -128,7 +149,10 @@ interface EcoWayerApiService {
     suspend fun marcarNotificacao(@Path("id") id: Int, @Body body: Map<String, Boolean>): Response<ApiResponse<Any>>
 
     @GET("user/insignia")
-    suspend fun listarInsignias(): Response<ApiResponse<Map<String, @JvmSuppressWildcards Any>>>
+    suspend fun listarInsignias(): Response<ApiResponse<InsigniaCatalogoLista>>
+
+    @GET("user/usuario_insignia")
+    suspend fun listarMinhasInsignias(): Response<ApiResponse<InsigniaProgressoLista>>
 
     @GET("user/voucher_catalogo")
     suspend fun listarVouchers(): Response<ApiResponse<CatalogoBeneficios>>

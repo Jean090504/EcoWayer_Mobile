@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Recycling
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -91,6 +92,7 @@ fun HomeScreen(
     onBuscarEcoPontos: () -> Unit = {},
     onVerExtrato: () -> Unit = {},
     onTrocarPontos: () -> Unit = {},
+    onAbrirEco: () -> Unit = {},
     onIrParaEcoPonto: (PontoColeta) -> Unit = {}
 ) {
     var filtroSelecionado by rememberSaveable { mutableStateOf("Todos") }
@@ -127,7 +129,7 @@ fun HomeScreen(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            item { Cabecalho(usuario?.nome ?: "Usuário EcoWayer", usuario?.foto) }
+            item { Cabecalho(usuario?.nome ?: "Usuário EcoWayer", usuario?.foto, onAbrirEco) }
 
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -192,8 +194,9 @@ fun HomeScreen(
 }
 
 @Composable
-private fun Cabecalho(nome: String, foto: String?) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun Cabecalho(nome: String, foto: String?, onAbrirEco: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
         val avatar = Modifier.size(54.dp).clip(CircleShape)
         if (foto.isNullOrBlank()) {
             Box(avatar.background(Color(0xFFEAF4EA)), contentAlignment = Alignment.Center) {
@@ -205,6 +208,10 @@ private fun Cabecalho(nome: String, foto: String?) {
         Column(modifier = Modifier.padding(start = 16.dp)) {
             Text("Olá, bem-vindo!", fontSize = 14.sp, color = TextoSecundario)
             Text(nome, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = EcoColors.TextoPrimario)
+        }
+        }
+        IconButton(onClick = onAbrirEco, modifier = Modifier.size(48.dp).background(Color(0xFFF1EBFA), CircleShape)) {
+            Icon(Icons.Outlined.SmartToy, contentDescription = "Conversar com a Eco", tint = RoxoHome)
         }
     }
 }

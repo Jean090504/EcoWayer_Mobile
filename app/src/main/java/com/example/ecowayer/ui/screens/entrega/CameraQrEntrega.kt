@@ -23,7 +23,7 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 
 @Composable
-internal fun CameraQrEntrega(modifier: Modifier, aoLer: () -> Unit, aoFalhar: (String) -> Unit) {
+internal fun CameraQrEntrega(modifier: Modifier, aoLer: (String) -> Unit, aoFalhar: (String) -> Unit) {
     val contexto = LocalContext.current
     val dono = LocalLifecycleOwner.current
     val previewView = remember(contexto) {
@@ -58,10 +58,10 @@ internal fun CameraQrEntrega(modifier: Modifier, aoLer: () -> Unit, aoFalhar: (S
                 lerQuadro(
                     scanner,
                     quadro,
-                    aoLer = {
+                    aoLer = { conteudo ->
                         if (ativo && !concluido) {
                             concluido = true
-                            leituraAtual.value()
+                            leituraAtual.value(conteudo)
                         }
                     },
                     aoFalhar = {
@@ -105,7 +105,7 @@ internal fun CameraQrEntrega(modifier: Modifier, aoLer: () -> Unit, aoFalhar: (S
 private fun lerQuadro(
     scanner: BarcodeScanner,
     quadro: ImageProxy,
-    aoLer: () -> Unit,
+    aoLer: (String) -> Unit,
     aoFalhar: () -> Unit
 ) {
     val imagem = quadro.image
@@ -118,7 +118,7 @@ private fun lerQuadro(
         val entrada = InputImage.fromMediaImage(imagem, quadro.imageInfo.rotationDegrees)
         scanner.process(entrada)
             .addOnSuccessListener { codigos ->
-                if (codigos.any { !it.rawValue.isNullOrBlank() }) aoLer()
+                codigos.firstOrNull { !it.rawValue.isNullOrBlank() }?.rawValue?.let(aoLer)
             }
             .addOnFailureListener { aoFalhar() }
             .addOnCompleteListener { quadro.close() }

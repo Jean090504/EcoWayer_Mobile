@@ -46,13 +46,16 @@ import com.example.ecowayer.ui.screens.ecopontos.EcoPontosScreen
 import com.example.ecowayer.ui.screens.endereco.EnderecoScreen
 import com.example.ecowayer.ui.screens.entrega.RegistrarEntregaScreen
 import com.example.ecowayer.ui.screens.home.HomeScreen
+import com.example.ecowayer.ui.screens.assistente.AssistenteEcoScreen
 import com.example.ecowayer.ui.screens.insignias.InsigniasScreen
 import com.example.ecowayer.ui.screens.loja.LojaScreen
 import com.example.ecowayer.ui.screens.mensagens.MensagensScreen
 import com.example.ecowayer.ui.screens.meusanuncios.MeusAnunciosScreen
 import com.example.ecowayer.ui.screens.notificacoes.NotificacoesScreen
 import com.example.ecowayer.ui.screens.perfil.PerfilScreen
+import com.example.ecowayer.ui.screens.pedidos.MeusPedidosScreen
 import com.example.ecowayer.ui.screens.splash.SplashScreen
+import com.example.ecowayer.ui.screens.splash.RecuperarSenhaDialog
 import com.example.ecowayer.ui.screens.trocapontos.TrocarPontosScreen
 import com.example.ecowayer.ui.screens.vereficacao.VerificacaoEmailScreen
 import com.example.ecowayer.ui.screens.vereficacao.VerificacaoNumeroScreen
@@ -112,6 +115,9 @@ fun AppNavGraph() {
     var cadastro by remember { mutableStateOf<CadastroDraft?>(null) }
     var cadastroCarregando by remember { mutableStateOf(false) }
     var cadastroErro by remember { mutableStateOf<String?>(null) }
+    var desafioTelefone by remember { mutableStateOf<String?>(null) }
+    var desafioEmail by remember { mutableStateOf<String?>(null) }
+    var mostrarRecuperacao by remember { mutableStateOf(false) }
     var publicando by remember { mutableStateOf(false) }
     var erroPublicacao by remember { mutableStateOf<String?>(null) }
     val sessaoRecusada by RetrofitFactory.sessaoRecusada.collectAsState()
@@ -176,19 +182,31 @@ fun AppNavGraph() {
                     }
                 },
                 onCriarConta = { navController.navigate(Routes.Cadastro.route) },
-                onEsqueciSenha = {
-                    // TODO: tela de recuperação de senha
-                }
+                onEsqueciSenha = { mostrarRecuperacao = true }
             )
+            if (mostrarRecuperacao) RecuperarSenhaDialog(onClose = { mostrarRecuperacao = false })
         }
 
         composable(Routes.Cadastro.route) {
             CadastroScreen(
                 onBack = { navController.popBackStack() },
+                erro = cadastroErro,
+                carregando = cadastroCarregando,
                 onAvancar = { dados ->
                     cadastro = dados
                     cadastroErro = null
-                    navController.navigate(Routes.VerificacaoNumero.route)
+                    scope.launch {
+                        cadastroCarregando = true
+                        try {
+                            val resposta = RetrofitFactory.getCadastroService().iniciarVerificacao(
+                                mapOf("tipo" to "telefone", "destino" to dados.telefone, "finalidade" to "cadastro")
+                            )
+                            desafioTelefone = resposta.body()?.desafio?.takeIf { resposta.isSuccessful && it.isNotBlank() }
+                                ?: error(resposta.body()?.message ?: "Não foi possível enviar o código por SMS.")
+                            navController.navigate(Routes.VerificacaoNumero.route)
+                        } catch (falha: Exception) { cadastroErro = falha.message ?: "Não foi possível enviar o código por SMS." }
+                        finally { cadastroCarregando = false }
+                    }
                 }
             )
         }
@@ -196,14 +214,52 @@ fun AppNavGraph() {
         composable(Routes.VerificacaoNumero.route) {
             VerificacaoNumeroScreen(
                 onBack = { navController.popBackStack() },
-                onVerificado = { navController.navigate(Routes.VerificacaoEmail.route) }
+                erro = cadastroErro,
+                carregando = cadastroCarregando,
+                onVerificar = { codigo -> scope.launch {
+                    cadastroCarregando = true
+                    cadastroErro = null
+                    try {
+                        val resposta = RetrofitFactory.getCadastroService().confirmarVerificacao(mapOf("desafio" to (desafioTelefone ?: ""), "codigo" to codigo))
+                        if (!resposta.isSuccessful || resposta.body()?.confirmado != true) error(resposta.body()?.message ?: "Código de telefone inválido.")
+                        val email = cadastro?.email ?: error("Dados do cadastro não encontrados.")
+                        val envio = RetrofitFactory.getCadastroService().iniciarVerificacao(mapOf("tipo" to "email", "destino" to email, "finalidade" to "cadastro"))
+                        desafioEmail = envio.body()?.desafio?.takeIf { envio.isSuccessful && it.isNotBlank() }
+                            ?: error(envio.body()?.message ?: "Não foi possível enviar o e-mail.")
+                        navController.navigate(Routes.VerificacaoEmail.route)
+                    } catch (falha: Exception) { cadastroErro = falha.message ?: "Não foi possível verificar o telefone." }
+                    finally { cadastroCarregando = false }
+                } },
+                onReenviar = { scope.launch {
+                    try { val resposta = RetrofitFactory.getCadastroService().reenviarVerificacao(mapOf("desafio" to (desafioTelefone ?: "")))
+                        if (!resposta.isSuccessful) error(resposta.body()?.message ?: "Não foi possível reenviar o SMS.")
+                        cadastroErro = null
+                    } catch (falha: Exception) { cadastroErro = falha.message }
+                } }
             )
         }
 
         composable(Routes.VerificacaoEmail.route) {
             VerificacaoEmailScreen(
                 onBack = { navController.popBackStack() },
-                onVerificado = { navController.navigate(Routes.Endereco.route) }
+                erro = cadastroErro,
+                carregando = cadastroCarregando,
+                onVerificar = { codigo -> scope.launch {
+                    cadastroCarregando = true
+                    cadastroErro = null
+                    try {
+                        val resposta = RetrofitFactory.getCadastroService().confirmarVerificacao(mapOf("desafio" to (desafioEmail ?: ""), "codigo" to codigo))
+                        if (!resposta.isSuccessful || resposta.body()?.confirmado != true) error(resposta.body()?.message ?: "Código de e-mail inválido.")
+                        navController.navigate(Routes.Endereco.route)
+                    } catch (falha: Exception) { cadastroErro = falha.message ?: "Não foi possível verificar o e-mail." }
+                    finally { cadastroCarregando = false }
+                } },
+                onReenviar = { scope.launch {
+                    try { val resposta = RetrofitFactory.getCadastroService().reenviarVerificacao(mapOf("desafio" to (desafioEmail ?: "")))
+                        if (!resposta.isSuccessful) error(resposta.body()?.message ?: "Não foi possível reenviar o e-mail.")
+                        cadastroErro = null
+                    } catch (falha: Exception) { cadastroErro = falha.message }
+                } }
             )
         }
 
@@ -248,7 +304,9 @@ fun AppNavGraph() {
                                     email = dados.email,
                                     telefone = dados.telefone,
                                     senha = dados.senha,
-                                    id_endereco = idEndereco
+                                    id_endereco = idEndereco,
+                                    desafio_email = desafioEmail ?: "",
+                                    desafio_telefone = desafioTelefone ?: ""
                                 )
                             ).awaitResponse()
                             if (!respostaUsuario.isSuccessful || respostaUsuario.body()?.status != true) {
@@ -295,10 +353,15 @@ fun AppNavGraph() {
                 onBuscarEcoPontos = { navController.navigate(Routes.EcoPontos.criar()) },
                 onVerExtrato = { navController.navigate(Routes.ExtratoPontos.route) },
                 onTrocarPontos = { navController.navigate(Routes.TrocarPontos.route) },
+                onAbrirEco = { navController.navigate(Routes.AssistenteEco.route) },
                 onIrParaEcoPonto = { ponto ->
                     navController.navigate(Routes.EcoPontos.criar(ponto.id))
                 }
             )
+        }
+
+        composable(Routes.AssistenteEco.route) {
+            AssistenteEcoScreen(onVoltar = { navController.popBackStack() })
         }
 
         composable(
@@ -386,6 +449,7 @@ fun AppNavGraph() {
                 onQrCode = { navController.abrirRegistrarEntrega() },
                 onDenunciar = { id -> navController.navigate(Routes.DenunciarAnuncio.criar(id)) },
                 onEditar = { id -> navController.navigate(Routes.EditarAnuncio.criar(id)) },
+                onAbrirPedidos = { navController.navigate(Routes.MeusPedidos.route) },
                 onAbrirConversa = { id -> navController.navigate(Routes.Conversa.criar(id)) }
             )
         }
@@ -408,6 +472,13 @@ fun AppNavGraph() {
             RegistrarEntregaScreen(
                 onNavegar = { destino -> navController.navegarPelaBarra(destino) },
                 onQrCode = { /* já está nesta tela */ }
+            )
+        }
+
+        composable(Routes.MeusPedidos.route) {
+            MeusPedidosScreen(
+                onVoltar = { navController.popBackStack() },
+                onEscanearQr = { navController.abrirRegistrarEntrega() }
             )
         }
 
@@ -443,6 +514,7 @@ fun AppNavGraph() {
                 onNotificacoes = { navController.navigate(Routes.Notificacoes.route) },
                 onTrocasPontos = { navController.navigate(Routes.Carteira.route) },
                 onMeusAnuncios = { navController.navigate(Routes.MeusAnuncios.route) },
+                onMeusPedidos = { navController.navigate(Routes.MeusPedidos.route) },
                 onConfiguracoes = { navController.navigate(Routes.Configuracoes.route) },
                 onChat = { navController.navigate(Routes.Chat.route) },
                 onSair = {

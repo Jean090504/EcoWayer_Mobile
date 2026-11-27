@@ -1,5 +1,7 @@
 package com.example.ecowayer.ui.screens.detalhes
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -31,8 +34,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
@@ -49,11 +57,13 @@ import com.example.ecowayer.model.AnuncioApi
 import com.example.ecowayer.model.donoId
 import com.example.ecowayer.model.pertenceA
 import com.example.ecowayer.service.SessionStore
+import com.example.ecowayer.service.RetrofitFactory
 import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.components.ImagemRemota
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
+import kotlinx.coroutines.launch
 
 /**
  * Modelo temporário. Quando a API estiver pronta, gere estas classes a partir
@@ -102,10 +112,15 @@ fun DetalhesAnuncioScreen(
     onNavegar: (DestinoBarra) -> Unit = {},
     onQrCode: () -> Unit = {},
     onAbrirConversa: (Int) -> Unit = {},
+    onAbrirPedidos: () -> Unit = {},
     onDenunciar: (Int) -> Unit = {},
     onEditar: (Int) -> Unit = {}
 ) {
     val viewModel: DetalhesAnuncioViewModel = viewModel()
+    val scope = rememberCoroutineScope()
+    val contexto = LocalContext.current
+    var comprando by remember { mutableStateOf(false) }
+    var erroCompra by remember { mutableStateOf<String?>(null) }
     val estado by viewModel.estado.collectAsState()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.carregar(anuncioId) }
     LaunchedEffect(estado.conversaId) {
@@ -126,6 +141,7 @@ fun DetalhesAnuncioScreen(
     val proprio = anuncioApi.pertenceA(usuarioId)
     val podeInteragir = usuarioId != null && anuncioApi.donoId() != null && !proprio
     val podeConversar = podeInteragir && anuncioApi.status.equals("ativo", ignoreCase = true)
+    val podeComprar = podeConversar && anuncioApi.modalidade_nome.equals("venda", ignoreCase = true) && (anuncioApi.preco ?: 0.0) > 0
 
     Scaffold(
         containerColor = Color.White,
@@ -251,6 +267,28 @@ fun DetalhesAnuncioScreen(
                     CardAnunciante(anuncio.anunciante)
                 }
                 estado.erro?.let { Text(it, color = Color(0xFFB3261E), fontSize = 13.sp) }
+                erroCompra?.let { Text(it, color = Color(0xFFB3261E), fontSize = 13.sp) }
+            }
+
+            if (podeComprar) {
+                Button(
+                    onClick = { scope.launch {
+                        comprando = true
+                        erroCompra = null
+                        try {
+                            val resposta = RetrofitFactory.getEcoWayerApi().iniciarCompraTeste(mapOf("id_anuncio" to anuncioApi.id))
+                            val url = resposta.body()?.response?.init_point
+                            val uri = Uri.parse(url)
+                            if (!resposta.isSuccessful || uri.scheme != "https" || uri.host !in listOf("mercadopago.com.br", "www.mercadopago.com.br"))
+                                error(resposta.body()?.message ?: "Checkout de teste indisponível.")
+                            contexto.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                            onAbrirPedidos()
+                        } catch (falha: Exception) { erroCompra = falha.message ?: "Não foi possível iniciar a compra." }
+                        finally { comprando = false }
+                    } },
+                    enabled = !comprando,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                ) { Text(if (comprando) "Abrindo checkout..." else "Comprar em ambiente de teste") }
             }
 
             if (proprio || podeConversar) {

@@ -58,7 +58,9 @@ import kotlinx.coroutines.launch
 @Composable
 fun CadastroScreen(
     onBack: () -> Unit,
-    onAvancar: (CadastroDraft) -> Unit
+    onAvancar: (CadastroDraft) -> Unit,
+    erro: String? = null,
+    carregando: Boolean = false
 ) {
     // Estados temporários. Quando ligar na API, isso vai para um ViewModel.
     var nome by remember { mutableStateOf("") }
@@ -84,12 +86,12 @@ fun CadastroScreen(
         }.onSuccess { resposta ->
             val lista = resposta.response?.genero.orEmpty()
             if (resposta.status && lista.isNotEmpty()) {
-                generos = lista
+                generos = lista.filter { it.sigla in listOf("M", "F", "PNI") }
             } else {
-                erroGeneros = resposta.message ?: "Nenhum gênero foi cadastrado no servidor."
+                erroGeneros = resposta.message ?: "Nenhuma opção de sexo foi cadastrada no servidor."
             }
         }.onFailure { erro ->
-            erroGeneros = erro.message ?: "Não foi possível carregar os gêneros."
+            erroGeneros = erro.message ?: "Não foi possível carregar as opções de sexo."
         }
         generosCarregando = false
     }
@@ -204,10 +206,10 @@ fun CadastroScreen(
                 ) {
                     Text(
                         when {
-                            generoSelecionado != null -> generoSelecionado!!.nome
-                            generosCarregando -> "Carregando gêneros..."
-                            erroGeneros != null -> "Tentar carregar gêneros"
-                            else -> "Selecione seu gênero"
+                            generoSelecionado != null -> if (generoSelecionado!!.sigla == "PNI") "Prefiro não dizer" else generoSelecionado!!.nome
+                            generosCarregando -> "Carregando opções de sexo..."
+                            erroGeneros != null -> "Tentar carregar opções de sexo"
+                            else -> "Selecione seu sexo"
                         }
                     )
                 }
@@ -217,7 +219,7 @@ fun CadastroScreen(
                 ) {
                     generos.forEach { genero ->
                         DropdownMenuItem(
-                            text = { Text(genero.nome) },
+                            text = { Text(if (genero.sigla == "PNI") "Prefiro não dizer" else genero.nome) },
                             onClick = {
                                 generoSelecionado = genero
                                 menuGenerosAberto = false
@@ -284,6 +286,7 @@ fun CadastroScreen(
             }
         }
 
+        if (erro != null) Text(erro, color = Color.Red, modifier = Modifier.padding(horizontal = 20.dp))
         // Botão fixo embaixo
         Button(
             onClick = {
@@ -299,7 +302,7 @@ fun CadastroScreen(
                     )
                 )
             },
-            enabled = aceitou && generoSelecionado != null && senha == confirmarSenha,
+            enabled = !carregando && aceitou && generoSelecionado != null && senha == confirmarSenha,
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = EcoColors.Verde,
@@ -315,7 +318,7 @@ fun CadastroScreen(
         ) {
             Box(Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Avançar",
+                    text = if (carregando) "Enviando código..." else "Avançar",
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.align(Alignment.Center)

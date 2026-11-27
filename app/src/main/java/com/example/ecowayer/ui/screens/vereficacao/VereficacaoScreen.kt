@@ -48,18 +48,12 @@ fun VerificacaoScreen(
     subtitulo: String,
     onBack: () -> Unit,
     onVerificar: (codigo: String) -> Unit,
-    onReenviar: () -> Unit
+    onReenviar: () -> Unit,
+    erro: String? = null,
+    carregando: Boolean = false
 ) {
     var codigo by remember { mutableStateOf("") }
 
-    // --- INTEGRAÇÃO BACK-END (futuro) -------------------------------------
-    // Mova estes estados para um ViewModel (ex.: VerificacaoViewModel):
-    //
-    // var carregando by remember { mutableStateOf(false) }
-    // var erro by remember { mutableStateOf<String?>(null) }
-    //
-    // Se quiser exibir o erro, coloque um Text(erro!!, color = Color.Red)
-    // logo abaixo do CodigoOtpInput.
     // ----------------------------------------------------------------------
 
     Column(
@@ -105,10 +99,11 @@ fun VerificacaoScreen(
             )
 
             CodigoOtpInput(codigo = codigo, onCodigoChange = { codigo = it })
+            if (erro != null) Text(erro, color = Color.Red, modifier = Modifier.padding(top = 12.dp))
 
             Button(
                 onClick = { onVerificar(codigo) },
-                enabled = codigo.length == 6,
+                enabled = codigo.length == 6 && !carregando,
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = EcoColors.Verde,
@@ -121,7 +116,7 @@ fun VerificacaoScreen(
                     .padding(top = 24.dp)
                     .height(48.dp)
             ) {
-                Text("Verificar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(if (carregando) "Aguarde..." else "Verificar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
 
             Row(modifier = Modifier.padding(top = 28.dp)) {
@@ -142,53 +137,45 @@ fun VerificacaoScreen(
 @Composable
 fun VerificacaoNumeroScreen(
     onBack: () -> Unit,
-    onVerificado: () -> Unit
+    onVerificar: (String) -> Unit,
+    onReenviar: () -> Unit,
+    erro: String? = null,
+    carregando: Boolean = false
 ) {
     VerificacaoScreen(
         tituloVerde = "Verificação de ",
         tituloRoxo = "número",
         subtitulo = "Enviamos um código de 6 dígitos para o seu número",
         onBack = onBack,
-        onVerificar = { codigo ->
-            // --- INTEGRAÇÃO BACK-END (futuro) ---------------------------
-            // viewModel.verificarTelefone(codigo)   // POST /verificacao/telefone
-            //   onSuccess -> onVerificado()
-            //   onError   -> erro = "Código inválido"
-            // -------------------------------------------------------------
-            onVerificado() // temporário: avança direto
-        },
-        onReenviar = {
-            // viewModel.reenviarCodigoTelefone()    // POST /verificacao/telefone/reenviar
-        }
+        onVerificar = onVerificar,
+        onReenviar = onReenviar,
+        erro = erro,
+        carregando = carregando
     )
 }
 
 @Composable
 fun VerificacaoEmailScreen(
     onBack: () -> Unit,
-    onVerificado: () -> Unit
+    onVerificar: (String) -> Unit,
+    onReenviar: () -> Unit,
+    erro: String? = null,
+    carregando: Boolean = false
 ) {
     VerificacaoScreen(
         tituloVerde = "Verificação de ",
         tituloRoxo = "e-mail",
         subtitulo = "Enviamos um código de 6 dígitos para o seu e-mail",
         onBack = onBack,
-        onVerificar = { codigo ->
-            // --- INTEGRAÇÃO BACK-END (futuro) ---------------------------
-            // viewModel.verificarEmail(codigo)      // POST /verificacao/email
-            //   onSuccess -> onVerificado()
-            //   onError   -> erro = "Código inválido"
-            // -------------------------------------------------------------
-            onVerificado() // temporário: avança direto
-        },
-        onReenviar = {
-            // viewModel.reenviarCodigoEmail()       // POST /verificacao/email/reenviar
-        }
+        onVerificar = onVerificar,
+        onReenviar = onReenviar,
+        erro = erro,
+        carregando = carregando
     )
 }
 
 @Preview(showBackground = true)
 @Composable
 fun VerificacaoNumeroPreview() {
-    EcowayerTheme { VerificacaoNumeroScreen(onBack = {}, onVerificado = {}) }
+    EcowayerTheme { VerificacaoNumeroScreen(onBack = {}, onVerificar = {}, onReenviar = {}) }
 }

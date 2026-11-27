@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +54,9 @@ import com.example.ecowayer.ui.components.BarraInferior
 import com.example.ecowayer.ui.components.DestinoBarra
 import com.example.ecowayer.ui.theme.EcoColors
 import com.example.ecowayer.ui.theme.EcowayerTheme
+import com.example.ecowayer.model.lerPedidoQr
+import com.example.ecowayer.service.RetrofitFactory
+import kotlinx.coroutines.launch
 
 private val FundoPagamento = Color(0xFFEDF0FF)
 private val TextoApoio = Color(0xFF565264)
@@ -102,46 +106,7 @@ private fun RegistrarEntregaLayout(
             )
 
             leitor()
-
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Forma de pagamento", color = EcoColors.TextoPrimario, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                FormaPagamento(
-                    icone = Icons.Outlined.QrCodeScanner,
-                    titulo = "Pix instantâneo",
-                    detalhe = if (resumo == null) "Pagamento indisponível" else "Aprovação imediata sem taxas",
-                    destaque = true
-                )
-                FormaPagamento(
-                    icone = Icons.Outlined.CreditCard,
-                    titulo = if (resumo == null) "Cartão" else "Mastercard final •••• 8821",
-                    detalhe = if (resumo == null) "Pagamento indisponível" else "Vencimento 08/28"
-                )
-            }
-
-            ResumoPedidoCard(resumo)
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (resumo != null) {
-                    Text(
-                        "Você ganhará +${resumo.pontos} EcoPontos nesta transação!",
-                        fontSize = 13.sp,
-                        color = EcoColors.Verde,
-                        textAlign = TextAlign.Center
-                    )
-                }
-                Button(
-                    onClick = {},
-                    enabled = false,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        disabledContainerColor = EcoColors.Roxo.copy(alpha = 0.15f),
-                        disabledContentColor = EcoColors.Roxo
-                    )
-                ) {
-                    Icon(Icons.Outlined.Lock, null, Modifier.size(20.dp))
-                    Text("Confirmar pagamento", Modifier.padding(start = 8.dp), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
-            }
+            Text("A confirmação vale para pedidos pagos no ambiente de teste e exige o código gerado pelo comprador.", color = TextoApoio, fontSize = 14.sp)
         }
     }
 }
@@ -149,8 +114,10 @@ private fun RegistrarEntregaLayout(
 @Composable
 private fun LeitorQrEntrega() {
     val contexto = LocalContext.current
+    val scope = rememberCoroutineScope()
     var leituraAtiva by remember { mutableStateOf(false) }
-    var codigoLido by remember { mutableStateOf(false) }
+    var confirmando by remember { mutableStateOf(false) }
+    var confirmado by remember { mutableStateOf(false) }
     var erro by remember { mutableStateOf<String?>(null) }
     val permissao = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { concedida ->
         leituraAtiva = concedida
@@ -165,9 +132,29 @@ private fun LeitorQrEntrega() {
         ) {
             CameraQrEntrega(
                 modifier = Modifier.matchParentSize(),
-                aoLer = {
-                    codigoLido = true
+                aoLer = { conteudo ->
                     leituraAtiva = false
+                    val pedido = lerPedidoQr(conteudo)
+                    if (pedido == null) {
+                        erro = "QR Code de entrega inválido."
+                    } else {
+                        confirmando = true
+                        scope.launch {
+                            try {
+                                val resposta = RetrofitFactory.getEcoWayerApi().confirmarPedido(
+                                    pedido.id, mapOf("codigo" to pedido.codigo)
+                                )
+                                if (!resposta.isSuccessful || resposta.body()?.pedido?.status_entrega != "entregue") {
+                                    error(resposta.body()?.message ?: "Não foi possível confirmar esta entrega.")
+                                }
+                                confirmado = true
+                            } catch (falha: Exception) {
+                                erro = falha.message ?: "Não foi possível confirmar esta entrega."
+                            } finally {
+                                confirmando = false
+                            }
+                        }
+                    }
                 },
                 aoFalhar = {
                     erro = it
@@ -185,14 +172,15 @@ private fun LeitorQrEntrega() {
         PainelQr(
             mensagem = when {
                 erro != null -> erro.orEmpty()
-                codigoLido -> "QR Code lido. A validação do pedido está indisponível."
-                else -> "Após receber o produto, escaneie o QR Code do vendedor."
+                confirmando -> "Confirmando a entrega do pedido..."
+                confirmado -> "Entrega confirmada com sucesso."
+                else -> "Escaneie o QR Code exibido pelo comprador após entregar o produto."
             },
-            acao = if (codigoLido) "Ler outro QR Code" else "Abrir câmera",
+            acao = if (confirmado || erro != null) "Ler outro QR Code" else "Abrir câmera",
             onAbrir = {
                 erro = null
-                codigoLido = false
-                if (ContextCompat.checkSelfPermission(contexto, Manifest.permission.CAMERA) ==
+                confirmado = false
+                if (!confirmando && ContextCompat.checkSelfPermission(contexto, Manifest.permission.CAMERA) ==
                     PackageManager.PERMISSION_GRANTED
                 ) {
                     leituraAtiva = true
@@ -298,7 +286,7 @@ fun RegistrarEntregaScreenPreview() {
         RegistrarEntregaLayout(
             onNavegar = {},
             onQrCode = {},
-            leitor = { PainelQr("Após receber o produto, escaneie o QR Code do vendedor.", "Abrir câmera") {} },
+            leitor = { PainelQr("Escaneie o QR Code exibido pelo comprador após entregar o produto.", "Abrir câmera") {} },
             resumo = ResumoPedido("#EW-8924", "R$ 38,50", "− R$ 10,00", "R$ 28,50", 35)
         )
     }

@@ -74,6 +74,7 @@ fun PerfilScreen(
     onTrocasPontos: () -> Unit = {},
     onInsignias: () -> Unit = {},
     onMeusAnuncios: () -> Unit = {},
+    onMeusPedidos: () -> Unit = {},
     onConfiguracoes: () -> Unit = {},
     onChat: () -> Unit = {},
     onSair: () -> Unit = {}
@@ -172,6 +173,16 @@ fun PerfilScreen(
                             //   dados: GET /usuarios/me/insignias
                             onInsignias()
                         }
+                    )
+                }
+
+                // Meus anúncios
+                item {
+                    ItemMenu(
+                        icone = Icons.Outlined.ReceiptLong,
+                        titulo = "Meus pedidos",
+                        detalhe = "Compras e vendas do site e do aplicativo",
+                        onClick = onMeusPedidos
                     )
                 }
 

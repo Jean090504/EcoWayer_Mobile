@@ -79,14 +79,19 @@ fun InsigniasScreen(
     val carteira = carteiraViewModel?.estado?.collectAsState()?.value
     val resumo = carteira?.carteira?.resumo
     val nivel = resumo?.nivel_atual
-    val insignias = listOf(                                           // TODO API
-        Insignia(1, "Pioneiro", true, cor = Color(0xFF4CAF50), icone = Icons.Outlined.WorkspacePremium),
-        Insignia(
-            2, "Mestre do Vidro", false, progresso = 0.4f, faltaTexto = "Faltam 12 kg",
-            cor = Color(0xFF6B8FDB), icone = Icons.Outlined.TrackChanges
-        ),
-        Insignia(3, "Sócio-Parceiro", true, cor = Color(0xFF6A4FBF), icone = Icons.Outlined.FavoriteBorder)
-    )
+    val insigniasViewModel: InsigniasViewModel? = if (LocalInspectionMode.current) null else viewModel()
+    val estadoInsignias = insigniasViewModel?.estado?.collectAsState()?.value
+    val progressoPorId = estadoInsignias?.progresso?.associateBy { it.id_insignia }.orEmpty()
+    val cores = listOf(Color(0xFF4CAF50), Color(0xFF6B8FDB), Color(0xFF6A4FBF))
+    val icones = listOf(Icons.Outlined.WorkspacePremium, Icons.Outlined.TrackChanges, Icons.Outlined.FavoriteBorder)
+    val insignias = estadoInsignias?.catalogo.orEmpty().mapIndexed { indice, item ->
+        val progresso = progressoPorId[item.id]
+        val concluida = progresso?.status.equals("concluido", ignoreCase = true)
+        val percentual = (progresso?.progresso ?: 0f).coerceIn(0f, 100f)
+        Insignia(item.id, item.nome, concluida, percentual / 100f,
+            if (concluida) null else "Progresso: ${percentual.toInt()}%",
+            cores[indice % cores.size], icones[indice % icones.size])
+    }
 
     Scaffold(
         containerColor = Color.White,
@@ -155,11 +160,28 @@ fun InsigniasScreen(
 
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
-                        "Insígnias Ativas",
+                        "Insígnias",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
                     )
+                }
+
+                if (estadoInsignias?.carregando == true) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(Modifier.size(24.dp))
+                        }
+                    }
+                } else if (estadoInsignias?.erro != null) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Column {
+                            Text(estadoInsignias?.erro.orEmpty())
+                            TextButton(onClick = { insigniasViewModel?.carregar() }) { Text("Tentar novamente") }
+                        }
+                    }
+                } else if (insignias.isEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }) { Text("Nenhuma insígnia disponível.") }
                 }
 
                 // Insígnias (3 por linha)

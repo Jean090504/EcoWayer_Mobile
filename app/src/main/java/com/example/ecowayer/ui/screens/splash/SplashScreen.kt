@@ -104,7 +104,7 @@ fun SplashScreen(
         )
 
         Image(
-            painter = painterResource(R.drawable.logo_ecowayer),
+            painter = painterResource(R.drawable.ecowayer_logo_hd),
             contentDescription = "Logo EcoWayer",
             modifier = Modifier
                 .align(Alignment.TopCenter)
