@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.ecowayer.service.RetrofitFactory
+import com.example.ecowayer.service.mensagemErro
 import kotlinx.coroutines.launch
 
 @Composable
@@ -48,7 +49,7 @@ fun RecuperarSenhaDialog(onClose: () -> Unit) {
                 if (etapa == 1) TextButton(onClick = { scope.launch {
                     try {
                         val resposta = RetrofitFactory.getCadastroService().reenviarVerificacao(mapOf("desafio" to desafio))
-                        erro = if (resposta.isSuccessful) "Código reenviado." else resposta.body()?.message ?: "Não foi possível reenviar."
+                        erro = if (resposta.isSuccessful) "Código reenviado." else resposta.mensagemErro("Não foi possível reenviar.")
                     } catch (falha: Exception) { erro = falha.message }
                 } }) { Text("Reenviar código") }
             }
@@ -63,17 +64,17 @@ fun RecuperarSenhaDialog(onClose: () -> Unit) {
                         0 -> {
                             val resposta = api.iniciarVerificacao(mapOf("tipo" to "email", "destino" to email, "finalidade" to "recuperacao"))
                             desafio = resposta.body()?.desafio?.takeIf { resposta.isSuccessful && it.isNotBlank() }
-                                ?: error(resposta.body()?.message ?: "Não foi possível enviar o e-mail.")
+                                ?: error(resposta.mensagemErro("Não foi possível enviar o e-mail."))
                             etapa = 1
                         }
                         1 -> {
                             val resposta = api.confirmarVerificacao(mapOf("desafio" to desafio, "codigo" to codigo))
-                            if (!resposta.isSuccessful || resposta.body()?.confirmado != true) error(resposta.body()?.message ?: "Código inválido.")
+                            if (!resposta.isSuccessful || resposta.body()?.confirmado != true) error(resposta.mensagemErro("Código inválido."))
                             etapa = 2
                         }
                         else -> {
                             val resposta = api.recuperarSenha(mapOf("desafio_email" to desafio, "nova_senha" to senha))
-                            if (!resposta.isSuccessful) error(resposta.body()?.message ?: "Não foi possível alterar a senha.")
+                            if (!resposta.isSuccessful) error(resposta.mensagemErro("Não foi possível alterar a senha."))
                             onClose()
                         }
                     }

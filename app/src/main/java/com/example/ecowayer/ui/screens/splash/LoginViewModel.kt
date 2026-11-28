@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.ecowayer.model.LoginRequest
 import com.example.ecowayer.model.GoogleLoginRequest
 import com.example.ecowayer.service.RetrofitFactory
+import com.example.ecowayer.service.mensagemErro
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -42,7 +43,7 @@ class LoginViewModel : ViewModel() {
                     }
                 } else {
                     _estado.value = LoginUiState(
-                        erro = corpo?.message ?: "Não foi possível entrar. Tente novamente."
+                        erro = corpo?.message ?: resposta.mensagemErro("Não foi possível entrar. Tente novamente.")
                     )
                 }
             } catch (_: Exception) {
@@ -75,7 +76,7 @@ class LoginViewModel : ViewModel() {
                     }
                 } else {
                     _estado.value = LoginUiState(
-                        erro = corpo?.message ?: "Não foi possível entrar com Google. Tente novamente."
+                        erro = corpo?.message ?: resposta.mensagemErro("Não foi possível entrar com Google. Tente novamente.")
                     )
                 }
             } catch (_: Exception) {

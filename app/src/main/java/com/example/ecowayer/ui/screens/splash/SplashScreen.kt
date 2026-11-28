@@ -77,7 +77,7 @@ fun SplashScreen(
             loginViewModel.entrarComGoogle(account.idToken.orEmpty())
         } catch (exception: ApiException) {
             if (exception.statusCode != 12501) {
-                loginViewModel.reportarErroGoogle("Não foi possível concluir o login com Google. Tente novamente.")
+                loginViewModel.reportarErroGoogle("Falha na autenticação Google (código ${exception.statusCode}). Verifique a conta de teste e tente novamente.")
             }
         }
     }
