@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Recycling
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -107,10 +108,10 @@ fun ExtratoPontosScreen(
     Scaffold(
         containerColor = Color(0xFFF5F5F8),
         topBar = {
-            Column(Modifier.fillMaxWidth().background(Color.White).statusBarsPadding()) {
+            Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).statusBarsPadding()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = EcoColors.TextoPrimario)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = MaterialTheme.colorScheme.onSurface)
                     }
                     Text(
                         buildAnnotatedString {
@@ -142,7 +143,7 @@ fun ExtratoPontosScreen(
                 Text(
                     "Extrato recente de pontos",
                     fontSize = 18.sp,
-                    color = EcoColors.TextoPrimario,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
                 )
@@ -192,7 +193,7 @@ private fun CardMovimento(item: LinhaExtrato) {
     }
     val forma = RoundedCornerShape(20.dp)
     Row(
-        Modifier.fillMaxWidth().clip(forma).background(Color.White)
+        Modifier.fillMaxWidth().clip(forma).background(MaterialTheme.colorScheme.surface)
             .border(1.dp, Color(0xFFF0EFF4), forma).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -204,7 +205,7 @@ private fun CardMovimento(item: LinhaExtrato) {
             Icon(icone, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(item.titulo, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = EcoColors.TextoPrimario)
+            Text(item.titulo, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             val detalhes = listOfNotNull(item.detalhe?.takeIf(String::isNotBlank), formatarData(item.data))
             if (detalhes.isNotEmpty()) {
                 Text(detalhes.joinToString(" • "), fontSize = 12.sp, color = Color(0xFF55515E))

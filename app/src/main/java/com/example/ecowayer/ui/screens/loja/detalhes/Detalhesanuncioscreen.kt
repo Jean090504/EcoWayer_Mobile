@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -144,7 +145,7 @@ fun DetalhesAnuncioScreen(
     val podeComprar = podeConversar && anuncioApi.modalidade_nome.equals("venda", ignoreCase = true) && (anuncioApi.preco ?: 0.0) > 0
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             BarraInferior(
                 selecionado = DestinoBarra.Loja,
@@ -169,7 +170,7 @@ fun DetalhesAnuncioScreen(
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Voltar",
-                        tint = EcoColors.TextoPrimario
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 Text(

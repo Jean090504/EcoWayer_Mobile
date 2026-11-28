@@ -1,18 +1,14 @@
 package com.example.ecowayer.service
 
 import com.example.ecowayer.model.*
-import okhttp3.MultipartBody
-import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Headers
-import retrofit2.http.Multipart
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
-import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -87,19 +83,8 @@ interface EcoWayerApiService {
     @PUT("user/anuncio/{id}")
     suspend fun atualizarAnuncio(@Path("id") id: Int, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<ApiResponse<AnuncioDetalhe>>
 
-    @Multipart
     @POST("user/anuncio/publicar")
-    suspend fun publicarAnuncio(
-        @Part("nome") nome: RequestBody,
-        @Part("descricao") descricao: RequestBody,
-        @Part("id_categoria") categoria: RequestBody,
-        @Part("id_modalidade") modalidade: RequestBody,
-        @Part("id_condicao_item") condicao: RequestBody,
-        @Part("preco") preco: RequestBody,
-        @Part("quantidade") quantidade: RequestBody,
-        @Part("unidade") unidade: RequestBody,
-        @Part fotos: List<MultipartBody.Part>
-    ): Response<ApiResponse<AnuncioDetalhe>>
+    suspend fun publicarAnuncio(@Body dados: CriarAnuncioRequest): Response<ApiResponse<AnuncioDetalhe>>
 
     @GET("user/tipo_denuncias")
     suspend fun listarTiposDenuncia(): Response<ApiResponse<TipoDenunciaLista>>

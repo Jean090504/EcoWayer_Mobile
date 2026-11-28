@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -59,7 +60,7 @@ fun VerificacaoScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .statusBarsPadding()
     ) {
         Row(
@@ -69,7 +70,7 @@ fun VerificacaoScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = EcoColors.TextoPrimario)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = MaterialTheme.colorScheme.onSurface)
             }
             Text(
                 text = buildAnnotatedString {
@@ -93,7 +94,7 @@ fun VerificacaoScreen(
             Text(
                 text = subtitulo,
                 fontSize = 12.sp,
-                color = EcoColors.TextoPrimario,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 6.dp, bottom = 24.dp)
             )
@@ -120,7 +121,7 @@ fun VerificacaoScreen(
             }
 
             Row(modifier = Modifier.padding(top = 28.dp)) {
-                Text("Não recebeu o código? ", fontSize = 12.sp, color = EcoColors.TextoPrimario)
+                Text("Não recebeu o código? ", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                 Text(
                     text = "Reenviar código",
                     fontSize = 12.sp,

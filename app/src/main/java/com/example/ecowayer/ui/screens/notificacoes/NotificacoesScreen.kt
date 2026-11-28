@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -93,7 +94,7 @@ fun NotificacoesScreen(
     val grupos = notificacoes.groupBy { it.grupo }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             BarraInferior(
                 selecionado = DestinoBarra.Perfil,
@@ -179,7 +180,7 @@ private fun ItemNotificacao(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .border(1.dp, Color(0xFFE8E8EC), RoundedCornerShape(14.dp))
             .clickable { onClick() }
             .padding(12.dp),
@@ -210,7 +211,7 @@ private fun ItemNotificacao(
                 notificacao.titulo,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                color = EcoColors.TextoPrimario
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 notificacao.tempo,

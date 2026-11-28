@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -105,7 +106,7 @@ fun AssistenteEcoScreen(onVoltar: () -> Unit) {
 
         LazyColumn(state = lista, modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (mensagens.isEmpty()) item {
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.White).padding(18.dp)) {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surface).padding(18.dp)) {
                     Text("Olá! Sou a Eco.", fontWeight = FontWeight.Bold, color = Roxo, fontSize = 17.sp)
                     Spacer(Modifier.height(6.dp))
                     Text("Posso ajudar você a explorar anúncios, entender seus pontos ou encontrar EcoPontos.", color = Color(0xFF5F5968), fontSize = 14.sp)
@@ -123,7 +124,7 @@ fun AssistenteEcoScreen(onVoltar: () -> Unit) {
             if (carregando) item { Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Roxo); Text("Eco está preparando uma resposta...", Modifier.padding(start = 8.dp), fontSize = 12.sp, color = Color.Gray) } }
         }
 
-        Row(Modifier.fillMaxWidth().background(Color.White).padding(12.dp), verticalAlignment = Alignment.Bottom) {
+        Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(12.dp), verticalAlignment = Alignment.Bottom) {
             OutlinedTextField(value = texto, onValueChange = { if (it.length <= 2000) texto = it }, modifier = Modifier.weight(1f), placeholder = { Text("Pergunte à Eco...") }, maxLines = 4, shape = RoundedCornerShape(16.dp))
             IconButton(onClick = { enviar(texto) }, enabled = texto.isNotBlank() && !carregando, modifier = Modifier.padding(start = 8.dp).size(50.dp).clip(CircleShape).background(Roxo)) {
                 Icon(Icons.Outlined.Send, contentDescription = "Enviar mensagem", tint = Color.White)

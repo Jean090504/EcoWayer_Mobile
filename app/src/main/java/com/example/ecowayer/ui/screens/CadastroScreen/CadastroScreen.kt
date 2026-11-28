@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
@@ -101,7 +102,7 @@ fun CadastroScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .statusBarsPadding()
             .imePadding()
     ) {
@@ -116,7 +117,7 @@ fun CadastroScreen(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Voltar",
-                    tint = EcoColors.TextoPrimario
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
             Text(
@@ -199,8 +200,8 @@ fun CadastroScreen(
                     },
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = EcoColors.TextoPrimario
+                        containerColor = MaterialTheme.colorScheme.background,
+                        contentColor = MaterialTheme.colorScheme.onSurface
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -281,7 +282,7 @@ fun CadastroScreen(
                         ) { append("Privacidade") }
                     },
                     fontSize = 12.sp,
-                    color = EcoColors.TextoPrimario
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }

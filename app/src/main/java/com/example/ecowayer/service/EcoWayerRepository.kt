@@ -5,9 +5,8 @@ import android.net.Uri
 import com.example.ecowayer.model.AnuncioApi
 import com.example.ecowayer.model.AnuncioOpcoes
 import com.example.ecowayer.model.AnuncioDetalhe
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.toRequestBody
+import com.example.ecowayer.model.CriarAnuncioRequest
+import com.google.gson.JsonParser
 
 class EcoWayerRepository(private val context: Context) {
     private val api get() = RetrofitFactory.getEcoWayerApi()
@@ -29,28 +28,22 @@ class EcoWayerRepository(private val context: Context) {
         unidade: String,
         imagens: List<Uri>
     ): AnuncioApi {
-        require(imagens.isNotEmpty()) { "Adicione pelo menos uma foto." }
-        val partes = imagens.mapIndexed { indice, uri ->
-            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                ?: error("Não foi possível ler a imagem selecionada.")
-            val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
-            MultipartBody.Part.createFormData(
-                "fotos", "imagem_$indice.${mime.substringAfter('/', "jpg")}",
-                bytes.toRequestBody(mime.toMediaTypeOrNull())
-            )
+        require(imagens.size in 1..6) { "Adicione de 1 a 6 fotos." }
+        val valor = preco.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0 }
+        val total = quantidade.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0 }
+            ?: error("Informe uma quantidade válida.")
+        val fotos = imagens.map { FotosCloudinaryService.enviar(context, it) }
+        val resposta = api.publicarAnuncio(CriarAnuncioRequest(
+            nome = nome, descricao = descricao, id_categoria = categoria,
+            id_modalidade = modalidade, id_condicao_item = condicao,
+            preco = valor, quantidade = total, unidade = unidade, fotos = fotos
+        ))
+        check(resposta.isSuccessful) {
+            runCatching {
+                val corpo = JsonParser.parseString(resposta.errorBody()?.string().orEmpty()).asJsonObject
+                corpo.get("field")?.asString ?: corpo.get("message")?.asString
+            }.getOrNull() ?: "Não foi possível publicar o anúncio (${resposta.code()})."
         }
-        val resposta = api.publicarAnuncio(
-            nome.toRequestBody("text/plain".toMediaTypeOrNull()),
-            descricao.toRequestBody("text/plain".toMediaTypeOrNull()),
-            categoria.toString().toRequestBody("text/plain".toMediaTypeOrNull()),
-            modalidade.toString().toRequestBody("text/plain".toMediaTypeOrNull()),
-            condicao.toString().toRequestBody("text/plain".toMediaTypeOrNull()),
-            preco.toRequestBody("text/plain".toMediaTypeOrNull()),
-            quantidade.toRequestBody("text/plain".toMediaTypeOrNull()),
-            unidade.toRequestBody("text/plain".toMediaTypeOrNull()),
-            partes
-        )
-        check(resposta.isSuccessful) { resposta.errorBody()?.string() ?: "Não foi possível publicar o anúncio." }
         return resposta.body()?.response?.anuncio ?: error("A API não retornou o anúncio criado.")
     }
 }

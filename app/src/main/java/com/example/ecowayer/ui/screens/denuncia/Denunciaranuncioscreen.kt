@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -99,7 +100,7 @@ private fun FormularioDenuncia(
     var detalhes by rememberSaveable { mutableStateOf("") }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             BarraInferior(
                 selecionado = if (mensagemSelecionada) null else DestinoBarra.Loja,
@@ -125,7 +126,7 @@ private fun FormularioDenuncia(
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Voltar",
-                        tint = EcoColors.TextoPrimario
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 Text(
@@ -195,7 +196,7 @@ private fun FormularioDenuncia(
                     value = detalhes,
                     enabled = !estado.enviando,
                     onValueChange = { detalhes = it },
-                    textStyle = TextStyle(fontSize = 14.sp, color = EcoColors.TextoPrimario),
+                    textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(120.dp),
@@ -268,7 +269,7 @@ private fun OpcaoMotivo(rotulo: String, selecionado: Boolean, onClick: () -> Uni
             rotulo,
             fontSize = 16.sp,
             fontWeight = if (selecionado) FontWeight.Medium else FontWeight.Normal,
-            color = EcoColors.TextoPrimario,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(start = 8.dp)
         )
     }

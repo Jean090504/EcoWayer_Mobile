@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Card
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -141,7 +142,7 @@ fun MeusPedidosScreen(onVoltar: () -> Unit, onEscanearQr: () -> Unit) {
                                 val codigoValido = codigos[pedido.id]?.takeIf { expiraEmMillis(it.expira_em) > agora }
                                 if (codigoValido != null) {
                                     Text("Mostre este QR ao vendedor após receber e conferir o produto.")
-                                    Box(Modifier.background(Color.White).padding(12.dp)) {
+                                    Box(Modifier.background(MaterialTheme.colorScheme.surface).padding(12.dp)) {
                                         QrCodeImagem(conteudoPedidoQr(pedido.id, codigoValido.codigo), Modifier.size(200.dp))
                                     }
                                     Text("Código: ${codigoValido.codigo}", fontWeight = FontWeight.Bold)

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.TrackChanges
 import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -94,7 +95,7 @@ fun InsigniasScreen(
     }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             // Continua no Perfil, de onde esta tela foi aberta
             BarraInferior(
@@ -120,7 +121,7 @@ fun InsigniasScreen(
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Voltar",
-                        tint = EcoColors.TextoPrimario
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 Text(
@@ -259,7 +260,7 @@ private fun CardInsignia(insignia: Insignia, onClick: () -> Unit) {
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(Color.White),
+                .background(MaterialTheme.colorScheme.surface),
             contentAlignment = Alignment.Center
         ) {
             Icon(insignia.icone, null, tint = insignia.cor, modifier = Modifier.size(24.dp))

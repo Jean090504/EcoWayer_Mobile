@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -111,7 +112,7 @@ fun MeusAnunciosScreen(
             // Cabeçalho branco (cobre também a área da barra de status)
             Column(
                 modifier = Modifier
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
                     .statusBarsPadding()
             ) {
                 Row(
@@ -124,7 +125,7 @@ fun MeusAnunciosScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = EcoColors.TextoPrimario
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     Text(
@@ -144,7 +145,7 @@ fun MeusAnunciosScreen(
                         Icon(
                             Icons.Filled.Add,
                             contentDescription = "Criar anúncio",
-                            tint = EcoColors.TextoPrimario
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -207,7 +208,7 @@ private fun CardMeuAnuncio(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .border(1.dp, Color(0xFFE8E8E8), RoundedCornerShape(20.dp))
             .clickable { onClick() }
             .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 16.dp)

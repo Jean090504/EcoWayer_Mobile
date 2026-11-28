@@ -1,26 +1,36 @@
 package com.example.ecowayer.ui.theme
 
-import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = Color(0xFFBEA6FF),
+    onPrimary = Color(0xFF241044),
+    secondary = Color(0xFF8AD48E),
+    background = Color(0xFF121416),
+    onBackground = Color(0xFFF1F2F1),
+    surface = Color(0xFF1C2022),
+    onSurface = Color(0xFFF1F2F1),
+    surfaceVariant = Color(0xFF292E31),
+    onSurfaceVariant = Color(0xFFCCD0D0),
+    outlineVariant = Color(0xFF454B4E)
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+    primary = Color(0xFF7045BC),
+    onPrimary = Color.White,
+    secondary = Color(0xFF3F9A48),
+    background = Color(0xFFF6F7F9),
+    onBackground = Color(0xFF1C1C1E),
+    surface = Color.White,
+    onSurface = Color(0xFF1C1C1E),
+    surfaceVariant = Color(0xFFF2F1F6),
+    onSurfaceVariant = Color(0xFF58665C),
+    outlineVariant = Color(0xFFE4E4E7)
 
     /* Other default colors to override
     background = Color(0xFFFFFBFE),
@@ -36,19 +46,9 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun EcowayerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     MaterialTheme(
         colorScheme = colorScheme,

@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -85,7 +86,7 @@ private fun RegistrarEntregaLayout(
     resumo: ResumoPedido? = null
 ) {
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             BarraInferior(selecionado = null, onSelecionar = onNavegar, onQrCode = onQrCode)
         }
@@ -239,7 +240,7 @@ private fun FormaPagamento(icone: ImageVector, titulo: String, detalhe: String, 
             Icon(icone, null, tint = if (destaque) Color.White else TextoApoio)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(titulo, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = EcoColors.TextoPrimario)
+            Text(titulo, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
             Text(detalhe, fontSize = 13.sp, color = TextoApoio)
         }
         Box(Modifier.size(20.dp).border(1.dp, Color(0xFFC1BECA), CircleShape))
@@ -253,7 +254,7 @@ private fun ResumoPedidoCard(resumo: ResumoPedido?) {
         modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFFF1F0F3), formato).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        LinhaResumo("Resumo do pedido", resumo?.numero.orEmpty(), EcoColors.TextoPrimario, negrito = true)
+        LinhaResumo("Resumo do pedido", resumo?.numero.orEmpty(), MaterialTheme.colorScheme.onSurface, negrito = true)
         if (resumo == null) {
             Text("Nenhum pedido vinculado a esta entrega.", color = TextoApoio, fontSize = 14.sp)
         } else {

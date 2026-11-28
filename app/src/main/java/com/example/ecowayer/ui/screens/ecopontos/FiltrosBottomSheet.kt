@@ -2,6 +2,7 @@ package com.example.ecowayer.ui.screens.ecopontos
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -37,7 +38,7 @@ fun FiltrosBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onFechar,
         sheetState = sheetState,
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         dragHandle = null
     ) {

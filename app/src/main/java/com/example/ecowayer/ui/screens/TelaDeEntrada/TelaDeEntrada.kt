@@ -35,6 +35,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -115,7 +116,7 @@ fun HomeScreen(
     }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             BarraInferior(
                 selecionado = DestinoBarra.Inicio,
@@ -164,7 +165,7 @@ fun HomeScreen(
                             .clickable(onClick = onBuscarEcoPontos),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Outlined.Search, "Buscar", tint = EcoColors.TextoPrimario)
+                        Icon(Icons.Outlined.Search, "Buscar", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
@@ -207,7 +208,7 @@ private fun Cabecalho(nome: String, foto: String?, onAbrirEco: () -> Unit) {
         }
         Column(modifier = Modifier.padding(start = 16.dp)) {
             Text("Olá, bem-vindo!", fontSize = 14.sp, color = TextoSecundario)
-            Text(nome, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = EcoColors.TextoPrimario)
+            Text(nome, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         }
         }
         IconButton(onClick = onAbrirEco, modifier = Modifier.size(48.dp).background(Color(0xFFF1EBFA), CircleShape)) {
@@ -228,7 +229,7 @@ private fun CardSaldo(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFFDEFADD), Color.White, Color(0xFFF5EFFF))))
+            .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant)))
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -260,7 +261,7 @@ private fun CardSaldo(
                     if (mostrarSaldo) saldo else "••••",
                     fontSize = 34.sp,
                     fontWeight = FontWeight.Bold,
-                    color = EcoColors.TextoPrimario
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(" pts", fontSize = 16.sp, color = VerdeHome, modifier = Modifier.padding(bottom = 5.dp))
             }
@@ -338,7 +339,7 @@ private fun MapaEcoPontos(pontos: List<PontoColeta>, onBuscarEcoPontos: () -> Un
                 .padding(10.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.surface)
                 .clickable { onBuscarEcoPontos() }
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -363,7 +364,7 @@ private fun ChipFiltro(texto: String, selecionado: Boolean, onClick: () -> Unit)
     Box(
         modifier = Modifier
             .clip(CircleShape)
-            .background(if (selecionado) RoxoHome else Color.White)
+            .background(if (selecionado) RoxoHome else MaterialTheme.colorScheme.surface)
             .border(1.dp, if (selecionado) RoxoHome else BordaHome, CircleShape)
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 7.dp),
@@ -373,7 +374,7 @@ private fun ChipFiltro(texto: String, selecionado: Boolean, onClick: () -> Unit)
             text = texto,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
-            color = if (selecionado) Color.White else Color(0xFF444444)
+            color = if (selecionado) Color.White else MaterialTheme.colorScheme.onSurface
         )
     }
 }

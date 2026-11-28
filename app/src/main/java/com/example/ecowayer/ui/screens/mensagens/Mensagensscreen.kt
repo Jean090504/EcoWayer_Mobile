@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -79,7 +80,7 @@ fun MensagensScreen(
     val conversas = estado.conversas.map { it.toUi(idUsuario) }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             // Nenhum item selecionado, como no protótipo
             BarraInferior(
@@ -105,7 +106,7 @@ fun MensagensScreen(
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Voltar",
-                        tint = EcoColors.TextoPrimario
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 Text(

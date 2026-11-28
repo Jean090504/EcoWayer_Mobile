@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -101,7 +102,7 @@ fun TrocarPontosScreen(
                             fontWeight = FontWeight.Bold
                         )
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                     navigationIcon = {
                         IconButton(onClick = onVoltar, enabled = !estado.enviando) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar")
@@ -266,7 +267,7 @@ private fun CardBeneficio(item: BeneficioCatalogo, habilitado: Boolean, onResgat
             .padding(horizontal = 16.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(22.dp))
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .border(1.dp, Color(0xFFF0EEF4), RoundedCornerShape(22.dp))
             .padding(start = 14.dp, top = 14.dp, end = 10.dp, bottom = 6.dp)
     ) {
@@ -279,7 +280,7 @@ private fun CardBeneficio(item: BeneficioCatalogo, habilitado: Boolean, onResgat
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(item.nome_parceiro, fontSize = 12.sp, color = Color(0xFF595363))
-                Text(item.beneficio, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = EcoColors.TextoPrimario)
+                Text(item.beneficio, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Icon(Icons.Outlined.Schedule, null, Modifier.size(13.dp), tint = Color(0xFF595363))
                     Text("${item.validade_dias} dias", fontSize = 12.sp, color = Color(0xFF595363))
@@ -299,7 +300,7 @@ private fun CardGiftCard(item: VoucherCarteiraApi) {
     val valor = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR")).format(item.valor_reais)
     Column(
         Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(forma)
-            .background(Color.White).border(1.dp, Color(0xFFF0EEF4), forma).padding(14.dp),
+            .background(MaterialTheme.colorScheme.surface).border(1.dp, Color(0xFFF0EEF4), forma).padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(
@@ -316,7 +317,7 @@ private fun CardGiftCard(item: VoucherCarteiraApi) {
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(item.categoria, fontSize = 12.sp, color = Color(0xFF595363))
-                Text(item.nome, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = EcoColors.TextoPrimario)
+                Text(item.nome, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Text(valor, fontSize = 13.sp, color = Color(0xFF595363))
             }
         }

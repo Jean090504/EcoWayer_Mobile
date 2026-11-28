@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -293,7 +294,7 @@ fun EcoPontosScreen(
     }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             BarraInferior(
                 selecionado = DestinoBarra.Inicio,
@@ -325,7 +326,7 @@ fun EcoPontosScreen(
                 Text(
                     "Buscando reciclagem, descarte e ferro-velho próximos...",
                     fontSize = 12.sp,
-                    color = EcoColors.TextoPrimario,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
@@ -463,7 +464,7 @@ private fun MapaEcoPontos(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
     ) {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
@@ -594,7 +595,7 @@ private fun TituloEcoPontos(onVoltar: () -> Unit) {
             modifier = Modifier
                 .size(30.dp)
                 .clickable { onVoltar() },
-            tint = EcoColors.TextoPrimario
+            tint = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = buildAnnotatedString {
@@ -623,7 +624,7 @@ private fun CardPontoSelecionado(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -665,7 +666,7 @@ private fun CardPontoSelecionado(
             )
             resumoRota != null -> Text(
                 "Rota: ${resumoRota.distancia_texto} • ${resumoRota.duracao_texto}",
-                color = EcoColors.TextoPrimario,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -757,7 +758,7 @@ private fun CampoBusca(
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { onBuscar() }),
-            textStyle = TextStyle(fontSize = 14.sp, color = EcoColors.TextoPrimario),
+            textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 10.dp),
@@ -784,7 +785,7 @@ private fun CampoBusca(
         Icon(
             Icons.Outlined.Tune,
             contentDescription = "Filtros",
-            tint = EcoColors.TextoPrimario,
+            tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier
                 .padding(start = 12.dp)
                 .size(22.dp)

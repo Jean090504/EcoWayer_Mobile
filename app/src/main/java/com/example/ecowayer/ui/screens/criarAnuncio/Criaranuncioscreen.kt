@@ -35,6 +35,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -75,9 +76,7 @@ import com.example.ecowayer.model.AnuncioApi
 import com.example.ecowayer.model.AnuncioOpcoes
 import com.example.ecowayer.ui.components.urlPublica
 
-/**
- * Dados do formulário. Quando a API estiver pronta, mapeie para o body do POST /anuncios.
- */
+/** Dados do formulário de publicação e edição. */
 data class NovoAnuncio(
     val imagens: List<Uri>,
     val titulo: String,
@@ -175,7 +174,7 @@ fun CriarAnuncioScreen(
     val valorHabilitado = modalidade == Modalidade.Venda
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             BarraInferior(
                 selecionado = DestinoBarra.Loja,
@@ -221,7 +220,7 @@ fun CriarAnuncioScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .background(Color(0xFFF2F1F6))
+                    .background(MaterialTheme.colorScheme.background)
                     .padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -333,20 +332,20 @@ fun CriarAnuncioScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(130.dp)
-                            .border(1.dp, Color(0xFFDDDDDD), RoundedCornerShape(14.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
                             .padding(12.dp)
                     ) {
                         BasicTextField(
                             value = descricao,
                             onValueChange = { if (it.length <= LIMITE_DESCRICAO) descricao = it },
-                            textStyle = TextStyle(fontSize = 13.sp, color = Color(0xFF333333)),
+                            textStyle = TextStyle(fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface),
                             modifier = Modifier.fillMaxSize(),
                             decorationBox = { campo ->
                                 if (descricao.isEmpty()) {
                                     Text(
                                         "Conte um pouco mais sobre o seu item...",
                                         fontSize = 13.sp,
-                                        color = Color(0xFF888888)
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                                 campo()
@@ -355,7 +354,7 @@ fun CriarAnuncioScreen(
                         Text(
                             "${descricao.length}/$LIMITE_DESCRICAO",
                             fontSize = 11.sp,
-                            color = Color(0xFF888888),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.align(Alignment.BottomEnd)
                         )
                     }
@@ -378,9 +377,6 @@ fun CriarAnuncioScreen(
                         .clip(RoundedCornerShape(26.dp))
                         .background(if (formularioValido) EcoColors.Roxo else EcoColors.Roxo.copy(alpha = 0.4f))
                         .clickable(enabled = formularioValido && !publicando) {
-                            // --- INTEGRAÇÃO BACK-END (futuro) ---------------------------
-                            // viewModel.publicar(...)  // POST /anuncios (multipart com imagens)
-                            // -------------------------------------------------------------
                             onPublicar(
                                 NovoAnuncio(
                                     imagens.toList(), titulo.trim(), categoria,
@@ -414,7 +410,7 @@ fun CriarAnuncioScreen(
 @Composable
 private fun SecaoCard(
     modifier: Modifier = Modifier,
-    fundo: Color = Color.White,
+    fundo: Color = MaterialTheme.colorScheme.surface,
     conteudo: @Composable () -> Unit
 ) {
     Column(
@@ -429,7 +425,7 @@ private fun SecaoCard(
 
 @Composable
 private fun RotuloCampo(texto: String) {
-    Text(texto, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF333333))
+    Text(texto, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
 }
 
 @Composable
@@ -445,8 +441,8 @@ private fun CampoArredondado(
         modifier = Modifier
             .fillMaxWidth()
             .height(44.dp)
-            .border(1.dp, Color(0xFFDDDDDD), RoundedCornerShape(14.dp))
-            .background(if (habilitado) Color.White else Color(0xFFF0F0F0), RoundedCornerShape(14.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+            .background(if (habilitado) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp))
             .padding(horizontal = 14.dp),
         contentAlignment = if (centralizado) Alignment.Center else Alignment.CenterStart
     ) {
@@ -458,14 +454,14 @@ private fun CampoArredondado(
             keyboardOptions = KeyboardOptions(keyboardType = teclado),
             textStyle = TextStyle(
                 fontSize = 14.sp,
-                color = Color(0xFF333333),
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = if (centralizado) TextAlign.Center else TextAlign.Start
             ),
             modifier = Modifier.fillMaxWidth(),
             decorationBox = { campo ->
                 if (valor.isEmpty()) {
                     Text(
-                        placeholder, fontSize = 14.sp, color = Color(0xFF999999),
+                        placeholder, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = if (centralizado) TextAlign.Center else TextAlign.Start
                     )
@@ -484,15 +480,15 @@ private fun Dropdown(selecionado: String, opcoes: List<String>, onSelecionar: (S
             modifier = Modifier
                 .fillMaxWidth()
                 .height(44.dp)
-                .border(1.dp, Color(0xFFDDDDDD), RoundedCornerShape(14.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
                 .clip(RoundedCornerShape(14.dp))
                 .clickable { aberto = true }
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(selecionado, fontSize = 14.sp, color = Color(0xFF333333))
-            Icon(Icons.Filled.KeyboardArrowDown, null, tint = Color(0xFF555555))
+            Text(selecionado, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+            Icon(Icons.Filled.KeyboardArrowDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         DropdownMenu(expanded = aberto, onDismissRequest = { aberto = false }) {
             opcoes.forEach { opcao ->
@@ -512,7 +508,7 @@ private fun SeletorModalidade(selecionada: Modalidade, onSelecionar: (Modalidade
             .fillMaxWidth()
             .height(36.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFFECECEC))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Modalidade.values().forEach { m ->
             val ativo = m == selecionada
@@ -529,7 +525,7 @@ private fun SeletorModalidade(selecionada: Modalidade, onSelecionar: (Modalidade
                     m.rotulo,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (ativo) Color.White else Color(0xFF555555),
+                    color = if (ativo) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
                 )
             }

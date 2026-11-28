@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -162,7 +163,7 @@ fun BoasVindasScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
     ) {
         // Conteúdo da página: formas + título + imagem + texto.
         // O AnimatedContent faz a troca deslizando + esmaecendo entre as páginas.
@@ -223,7 +224,7 @@ fun BoasVindasScreen(
                         text = atual.texto,
                         fontSize = 15.sp,
                         textAlign = TextAlign.Center,
-                        color = EcoColors.TextoPrimario
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -117,7 +118,7 @@ fun ConversaScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.surface)
                 .padding(horizontal = 8.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -125,7 +126,7 @@ fun ConversaScreen(
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Voltar",
-                    tint = EcoColors.TextoPrimario
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -190,7 +191,7 @@ fun ConversaScreen(
         // Campo de digitação
         Column(
             modifier = Modifier
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.surface)
                 .navigationBarsPadding()
         ) {
             HorizontalDivider(color = Color(0xFFEEEEEE))
@@ -203,7 +204,7 @@ fun ConversaScreen(
                 BasicTextField(
                     value = texto,
                     onValueChange = { texto = it },
-                    textStyle = TextStyle(fontSize = 14.sp, color = EcoColors.TextoPrimario),
+                    textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
                     maxLines = 4,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
                     modifier = Modifier.weight(1f),
@@ -262,7 +263,7 @@ private fun BolhaMensagem(mensagem: Mensagem, onDenunciar: () -> Unit) {
                 text = mensagem.texto,
                 fontSize = 14.sp,
                 lineHeight = 19.sp,
-                color = if (minha) Color.White else EcoColors.TextoPrimario,
+                color = if (minha) Color.White else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier
                     .weight(1f, fill = false)
                     .widthIn(max = 280.dp)

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -101,7 +102,7 @@ fun LojaScreen(
     }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             // Loja fica verde na barra (e o Início deixa de ficar)
             BarraInferior(
@@ -208,7 +209,7 @@ private fun ChipCategoria(texto: String, selecionado: Boolean, onClick: () -> Un
     Box(
         modifier = Modifier
             .clip(CircleShape)
-            .background(if (selecionado) EcoColors.Verde else Color.White)
+            .background(if (selecionado) EcoColors.Verde else MaterialTheme.colorScheme.surface)
             .border(1.dp, if (selecionado) EcoColors.Verde else Color(0xFFDDDDDD), CircleShape)
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 7.dp),
@@ -218,7 +219,7 @@ private fun ChipCategoria(texto: String, selecionado: Boolean, onClick: () -> Un
             text = texto,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
-            color = if (selecionado) Color.White else Color(0xFF444444)
+            color = if (selecionado) Color.White else MaterialTheme.colorScheme.onSurface
         )
     }
 }

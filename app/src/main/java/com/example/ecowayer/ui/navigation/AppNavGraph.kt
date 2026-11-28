@@ -406,16 +406,16 @@ fun AppNavGraph() {
                             val repositorio = EcoWayerRepository(context)
                             val opcoes = repositorio.carregarOpcoes()
                             val categoria = opcoes.categorias.firstOrNull { normalizar(it.nome) == normalizar(anuncio.categoria) }?.id
-                                ?: opcoes.categorias.firstOrNull()?.id ?: error("Nenhuma categoria cadastrada.")
+                                ?: error("Selecione uma categoria válida.")
                             val modalidadeNome = when (anuncio.modalidade) {
                                 com.example.ecowayer.ui.screens.criarAnuncio.Modalidade.Doacao -> "doacao"
                                 com.example.ecowayer.ui.screens.criarAnuncio.Modalidade.Troca -> "troca"
                                 com.example.ecowayer.ui.screens.criarAnuncio.Modalidade.Venda -> "venda"
                             }
                             val modalidade = opcoes.modalidades.firstOrNull { normalizar(it.nome) == modalidadeNome }?.id
-                                ?: opcoes.modalidades.firstOrNull()?.id ?: error("Nenhuma modalidade cadastrada.")
+                                ?: error("Selecione uma modalidade válida.")
                             val condicao = opcoes.condicoes.firstOrNull { normalizar(it.nome) == normalizar(anuncio.condicao) }?.id
-                                ?: opcoes.condicoes.firstOrNull()?.id ?: error("Nenhuma condição cadastrada.")
+                                ?: error("Selecione uma condição válida.")
                             repositorio.publicarAnuncio(
                                 nome = anuncio.titulo,
                                 descricao = anuncio.descricao,

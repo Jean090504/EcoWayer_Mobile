@@ -32,6 +32,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -98,7 +99,7 @@ fun PerfilScreen(
     )
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Column(Modifier.fillMaxWidth().statusBarsPadding()) {
                 Row(
@@ -124,7 +125,7 @@ fun PerfilScreen(
                         )
                     }
                 }
-                HorizontalDivider(color = Color(0xFFEEEEEE))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         },
         bottomBar = {

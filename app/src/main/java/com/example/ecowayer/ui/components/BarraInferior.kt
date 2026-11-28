@@ -21,6 +21,7 @@ import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -64,10 +65,10 @@ fun BarraInferior(
 ) {
     Column(
         modifier = modifier
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .navigationBarsPadding()
     ) {
-        HorizontalDivider(color = Color(0xFFEEEEEE))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -114,7 +115,7 @@ private fun ItemBarra(
     modifier: Modifier = Modifier
 ) {
     val ativo = destino == selecionado
-    val cor = if (ativo) EcoColors.Verde else Color(0xFF666666)
+    val cor = if (ativo) EcoColors.Verde else MaterialTheme.colorScheme.onSurfaceVariant
 
     Column(
         modifier = modifier
